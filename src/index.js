@@ -12,6 +12,7 @@ import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
 import { createAuth, isHttps, isKeyShaped, newKey, pathOf } from "./auth.js";
 import { listGames } from "./games.js";
+import { createIconCache } from "./icons.js";
 
 const publicPath = fileURLToPath(new URL("../public/", import.meta.url));
 const gamesPath = fileURLToPath(new URL("../public/games/", import.meta.url));
@@ -138,6 +139,17 @@ fastify.get("/invite.json", async (req, reply) => {
 fastify.get("/logout", (req, reply) => {
 	reply.header("Set-Cookie", auth.clearCookie());
 	return reply.redirect("/login");
+});
+
+// Shortcut logos on the start page (see src/icons.js): /icons/youtube.png and so on
+const getIcon = createIconCache();
+fastify.get("/icons/:file", async (req, reply) => {
+	const m = /^([a-z]+)\.png$/.exec(req.params.file);
+	const icon = m && (await getIcon(m[1]));
+	if (!icon) return reply.code(404).header("Cache-Control", "no-store").type("text/plain").send("No logo");
+	reply.header("Cache-Control", "public, max-age=86400");
+	reply.header("Cross-Origin-Resource-Policy", "same-origin");
+	return reply.type(icon.type).send(icon.body);
 });
 
 // The Games page asks for this list (see src/games.js). It's locked like everything else.

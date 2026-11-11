@@ -10,10 +10,10 @@ const MAX_FAILS = 10; // wrong links allowed per IP...
 const FAIL_WINDOW = 15 * 60 * 1000; // ...in this many milliseconds
 
 // Pages anyone can load without the invite link: the lock screen, its styles,
-// the invite link itself, and the public Scramjet library files the service worker needs.
+// the invite link itself, the shortcut logos, and the public Scramjet library files the service worker needs.
 // The proxy connection (/wisp/) and every ROKI page stay locked.
 const OPEN_PATHS = new Set(["/login", "/login.html", "/logout", "/roki.css", "/favicon.ico", "/sw.js"]);
-const OPEN_PREFIXES = ["/join/", "/scram/", "/baremux/", "/libcurl/"];
+const OPEN_PREFIXES = ["/join/", "/icons/", "/scram/", "/baremux/", "/libcurl/"];
 
 const sha = (s) => createHash("sha256").update(String(s)).digest();
 const same = (a, b) => a.length === b.length && timingSafeEqual(a, b);

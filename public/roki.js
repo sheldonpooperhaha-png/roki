@@ -426,6 +426,12 @@
 		navigate(active, value);
 	});
 
+	// Shortcut logos: if a site's logo can't load, show its letters instead
+	document.querySelectorAll(".tile-logo").forEach((img) => {
+		const fail = () => img.parentElement.classList.add("no-logo");
+		if (img.complete && !img.naturalWidth) fail();
+		else img.addEventListener("error", fail, { once: true });
+	});
 	document.querySelectorAll(".tile").forEach((tile) => {
 		tile.addEventListener("click", () => navigate(active, tile.dataset.url));
 		tile.addEventListener("auxclick", (e) => { if (e.button === 1) { e.preventDefault(); newTab(tile.dataset.url); } });
