@@ -1,0 +1,7 @@
+node_modules
+.DS_Store
+scramjet/
+roki-password.txt
+roki.pid
+roki-log.txt
+roki-errors.txt
