@@ -59,7 +59,8 @@ cd "$APP_DIR"
 pnpm install --prod --ignore-workspace
 id roki >/dev/null 2>&1 || useradd --system --home-dir "$APP_DIR" --no-create-home --shell /usr/sbin/nologin roki
 chown -R roki:roki "$APP_DIR"
-git config --global --add safe.directory "$APP_DIR"
+# Lets root run git in the repo (owned by the roki user) for updates. --system works without $HOME (cloud-init has none).
+git config --system --get-all safe.directory | grep -qxF "$APP_DIR" || git config --system --add safe.directory "$APP_DIR"
 
 # --- Settings (the invite link's secret key stays on the server, never in the repo) ---
 set +x # keep the key out of the setup log
