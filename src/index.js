@@ -51,6 +51,9 @@ Object.assign(wisp.options, {
 	// Cloudflare family DNS (blocks malware and adult sites). "resolve" makes wisp actually use these servers.
 	dns_method: "resolve",
 	dns_servers: ["1.1.1.3", "1.0.0.3"],
+	// Connect over IPv4 first. Wisp's default tries IPv6 first, and on servers or home networks
+	// where IPv6 doesn't really work (like the Lightsail server), every site just hangs.
+	dns_result_order: "ipv4first",
 });
 
 const fastify = Fastify({
