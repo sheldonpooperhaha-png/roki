@@ -283,6 +283,40 @@
 		errorEl.hidden = !msg;
 	}
 
+	// YouTube workaround: when YouTube switches to a video inside the same page (clicking a video from the
+	// home page, search or the side list), the browser tab crashes under Scramjet 1.x ("This page is having a
+	// problem" / STATUS_BREAKPOINT). Opening the same video page fresh works fine. So on youtube.com, a plain
+	// click on a video link loads that video page fresh instead of letting YouTube switch to it in place.
+	const YT_VIDEO_PATH = /^\/(watch|shorts\/|live\/)/;
+	const guardedWindows = new WeakSet();
+	function youTubeVideoUrl(u) {
+		try {
+			const url = new URL(realUrl(u));
+			return /(^|\.)youtube\.com$/.test(url.hostname) && YT_VIDEO_PATH.test(url.pathname) ? url.href : null;
+		} catch (e) {
+			return null;
+		}
+	}
+	function guardYouTube(tab, f) {
+		let win;
+		try {
+			win = f.frame.contentWindow;
+			if (!win || guardedWindows.has(win) || !/(^|\.)youtube\.com$/.test(new URL(realUrl(win.location.href)).hostname)) return;
+		} catch (e) {
+			return;
+		}
+		guardedWindows.add(win);
+		win.addEventListener("click", (e) => {
+			if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+			const a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+			const video = a && youTubeVideoUrl(a.href);
+			if (!video || tab.frame !== f) return;
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			f.go(video);
+		}, true);
+	}
+
 	function makeProxyFrame(tab) {
 		const f = scramjet.createFrame();
 		f.kind = "proxy";
@@ -293,8 +327,13 @@
 			tab.url = realUrl(e.url);
 			if (tab === active && document.activeElement !== addr) addr.value = tab.url;
 			readMeta(tab);
+			guardYouTube(tab, f);
 		});
-		f.frame.addEventListener("load", () => { if (tab.frame === f) readMeta(tab); });
+		f.frame.addEventListener("load", () => {
+			if (tab.frame !== f) return;
+			readMeta(tab);
+			guardYouTube(tab, f);
+		});
 		viewport.appendChild(f.frame);
 		return f;
 	}
@@ -388,7 +427,12 @@
 		}
 		if (changed) renderTab(tab);
 	}
-	setInterval(() => { for (const t of tabs) readMeta(t); }, 2000);
+	setInterval(() => {
+		for (const t of tabs) {
+			readMeta(t);
+			if (t.frame && t.frame.kind === "proxy") guardYouTube(t, t.frame);
+		}
+	}, 2000);
 
 	function updateNav() {
 		const has = !!(active && active.frame && isFrameView(active));
