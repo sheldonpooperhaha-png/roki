@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { fileURLToPath } from "url";
 import { hostname } from "node:os";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { server as wisp, logging } from "@mercuryworkshop/wisp-js/server";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
@@ -10,24 +10,35 @@ import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
-import { createAuth, isHttps, pathOf } from "./auth.js";
+import { createAuth, isHttps, isKeyShaped, newKey, pathOf } from "./auth.js";
 import { listGames } from "./games.js";
 
 const publicPath = fileURLToPath(new URL("../public/", import.meta.url));
 const gamesPath = fileURLToPath(new URL("../public/games/", import.meta.url));
 
-// ROKI password lock (see src/auth.js).
-// The password comes from ROKI_PASSWORD if it is set, otherwise from roki-password.txt in the project folder.
-function loadPassword() {
-	if (process.env.ROKI_PASSWORD) return { password: process.env.ROKI_PASSWORD, from: "ROKI_PASSWORD" };
+// ROKI secret-link lock (see src/auth.js).
+// The secret key comes from ROKI_KEY if it is set (the server uses this), otherwise from
+// roki-key.txt in the project folder, which is made the first time ROKI runs.
+const keyFile = new URL("../roki-key.txt", import.meta.url);
+function loadKey() {
+	const fromEnv = (process.env.ROKI_KEY || "").trim();
+	if (fromEnv) {
+		if (!isKeyShaped(fromEnv)) throw new Error("ROKI_KEY must be 16-128 letters, numbers, - or _");
+		return fromEnv;
+	}
 	try {
-		const password = readFileSync(new URL("../roki-password.txt", import.meta.url), "utf8").trim();
-		if (password) return { password, from: "roki-password.txt" };
+		const saved = readFileSync(keyFile, "utf8").trim();
+		if (isKeyShaped(saved)) return saved;
 	} catch {}
-	return { password: "", from: null };
+	const key = newKey();
+	try {
+		writeFileSync(keyFile, key + "\n");
+	} catch {
+		console.warn("Couldn't save roki-key.txt, so the invite link changes every restart.");
+	}
+	return key;
 }
-const passwordSource = loadPassword();
-const auth = createAuth(passwordSource.password);
+const auth = createAuth(loadKey());
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Wisp Configuration: Refer to the documentation at https://www.npmjs.com/package/@mercuryworkshop/wisp-js
@@ -69,7 +80,7 @@ fastify.addHook("onRequest", async (req, reply) => {
 	if (req.method === "GET" && String(req.headers.accept || "").includes("text/html")) {
 		return reply.redirect("/login");
 	}
-	return reply.code(401).type("text/plain").send("ROKI is locked. Log in at /login.");
+	return reply.code(401).type("text/plain").send("ROKI is private. Open your invite link to get in.");
 });
 
 fastify.register(fastifyStatic, {
@@ -100,20 +111,28 @@ fastify.get("/login", (req, reply) => {
 	return reply.sendFile("login.html");
 });
 
-fastify.post("/login", async (req, reply) => {
+// The invite link: opening /join/<key> logs this browser in, then goes to ROKI.
+// Anything after # in the link (like #cloak from the friend launcher) carries over to ROKI.
+fastify.get("/join/:key", async (req, reply) => {
+	reply.header("Cache-Control", "no-store");
+	reply.header("Referrer-Policy", "no-referrer");
 	const ip = req.ip;
-	if (!auth.allowAttempt(ip)) {
-		return reply.code(429).send({ ok: false, error: "Too many wrong tries. Wait 15 minutes, then try again." });
-	}
-	const password = req.body && typeof req.body.password === "string" ? req.body.password : "";
-	if (!auth.checkPassword(password)) {
+	if (!auth.allowAttempt(ip)) return reply.redirect("/login?link=wait");
+	if (!auth.checkKey(req.params.key)) {
 		auth.recordFail(ip);
 		await sleep(400);
-		return reply.code(401).send({ ok: false, error: "Wrong password." });
+		return reply.redirect("/login?link=bad");
 	}
 	auth.recordSuccess(ip);
 	reply.header("Set-Cookie", auth.cookie(isHttps(req)));
-	return { ok: true };
+	return reply.redirect("/");
+});
+
+// Settings asks for this to copy the invite link and to make the friend launcher.
+// Like every ROKI page, only browsers that already got in can see it.
+fastify.get("/invite.json", async (req, reply) => {
+	reply.header("Cache-Control", "no-store");
+	return { path: auth.invitePath };
 });
 
 fastify.get("/logout", (req, reply) => {
@@ -121,7 +140,7 @@ fastify.get("/logout", (req, reply) => {
 	return reply.redirect("/login");
 });
 
-// The Games page asks for this list (see src/games.js). It's behind the password lock like everything else.
+// The Games page asks for this list (see src/games.js). It's locked like everything else.
 fastify.get("/games/list.json", async (req, reply) => {
 	reply.header("Cache-Control", "no-store");
 	return { games: listGames(gamesPath) };
@@ -145,13 +164,8 @@ fastify.server.on("listening", () => {
 		}:${address.port}`
 	);
 
-	if (auth.generated) {
-		console.log("\nROKI password lock is on.");
-		console.log(`No password was set (ROKI_PASSWORD or roki-password.txt), so this run's password is: ${auth.password}`);
-		console.log("It changes every restart. Put your own in roki-password.txt or ROKI_PASSWORD.\n");
-	} else {
-		console.log(`\nROKI password lock is on (password from ${passwordSource.from}).\n`);
-	}
+	console.log("\nROKI is private. Open this invite link to get in (it's also in Settings once you're in):");
+	console.log(`\thttp://localhost:${address.port}${auth.invitePath}\n`);
 });
 
 process.on("SIGINT", shutdown);

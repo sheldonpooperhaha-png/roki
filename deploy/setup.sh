@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Sets up ROKI on a fresh Ubuntu 24.04 server (made for Amazon Lightsail).
 # Run as root from the cloned repo:
-#   ROKI_PASSWORD='your-password' bash deploy/setup.sh
-# Safe to run again; it updates what's already there.
+#   bash deploy/setup.sh
+# Safe to run again; it updates what's already there and keeps the same invite link.
 #
 # What it does:
 #   - adds 1 GB of swap (the $5 Lightsail plan has 512 MB of memory)
@@ -10,6 +10,7 @@
 #   - installs ROKI's packages and runs ROKI as a service on 127.0.0.1:8080
 #   - puts Caddy in front for HTTPS on https://<server-ip>.nip.io (free Let's Encrypt certificate)
 #   - checks the server's public address every 2 minutes and updates the HTTPS name if it changes
+#   - makes ROKI's secret invite link; see it with:  sudo cat /etc/roki/link
 set -euxo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -60,16 +61,21 @@ id roki >/dev/null 2>&1 || useradd --system --home-dir "$APP_DIR" --no-create-ho
 chown -R roki:roki "$APP_DIR"
 git config --global --add safe.directory "$APP_DIR"
 
-# --- Settings (password stays on the server, never in the repo) ---
+# --- Settings (the invite link's secret key stays on the server, never in the repo) ---
+set +x # keep the key out of the setup log
 install -d -m 700 /etc/roki
-old_password="$(sed -n 's/^ROKI_PASSWORD=//p' /etc/roki/env 2>/dev/null || true)"
-password="${ROKI_PASSWORD:-$old_password}"
+key="$(sed -n 's/^ROKI_KEY=//p' /etc/roki/env 2>/dev/null || true)"
+if ! [[ $key =~ ^[A-Za-z0-9_-]{16,128}$ ]]; then
+	key="$(head -c 18 /dev/urandom | base64 | tr '+/' '-_')"
+fi
 {
-	[ -n "$password" ] && printf 'ROKI_PASSWORD=%s\n' "$password"
+	printf 'ROKI_KEY=%s\n' "$key"
 	echo "PORT=8080"
 	echo "TRUST_PROXY=1"
 } > /etc/roki/env
 chmod 600 /etc/roki/env
+unset key
+set -x
 
 # --- ROKI service ---
 cat > /etc/systemd/system/roki.service <<EOF
@@ -121,4 +127,5 @@ systemctl enable --now caddy.service
 systemctl enable --now roki-address.timer
 /usr/local/sbin/roki-update-address
 
-echo "ROKI is set up: $(cat /etc/roki/link)"
+set +x
+echo "ROKI is set up. Invite link: $(cat /etc/roki/link)"

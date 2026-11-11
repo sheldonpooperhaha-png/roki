@@ -177,7 +177,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, .tab:focus-visible {
 .switch:checked { background: var(--accent); }
 .switch:checked::after { transform: translateX(16px); background: var(--bg); }
 
-/* ---------- Login page + log out ---------- */
+/* ---------- Lock screen + log out ---------- */
 .login-page { overflow: auto; }
 .login {
 	min-height: 100%; box-sizing: border-box;
@@ -186,16 +186,15 @@ a:focus-visible, button:focus-visible, input:focus-visible, .tab:focus-visible {
 	padding-left: max(16px, env(safe-area-inset-left, 0px));
 	padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.login-form { width: min(380px, 100%); display: grid; gap: 12px; margin: 0; }
-.login-form input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--fg); font: inherit; font-size: 15px; }
-.login-form input::placeholder { color: var(--muted); }
-.login-btn {
-	height: 48px; border: 0; border-radius: 12px; background: var(--accent); color: var(--bg);
-	font-size: 15px; font-weight: 600; cursor: pointer; transition: filter .15s;
+.lock-card {
+	width: min(380px, 100%); box-sizing: border-box; display: grid; justify-items: center; gap: 8px;
+	padding: 28px 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface);
+	color: var(--muted); text-align: center;
 }
-.login-btn:hover:not(:disabled) { filter: brightness(1.08); }
-.login-btn:disabled { opacity: 0.6; cursor: default; }
-.login-form .error { margin: 0; }
+.lock-card svg { margin-bottom: 4px; color: var(--accent); }
+.lock-title { margin: 0; color: var(--fg); font-size: 16px; font-weight: 600; }
+.lock-text { margin: 0; font-size: 14px; line-height: 1.5; text-wrap: balance; }
+.lock-text.bad { color: var(--danger); }
 
 .panel-link { display: block; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; text-decoration: none; }
 .panel-link:hover { color: var(--fg); }
@@ -294,4 +293,5 @@ a:focus-visible, button:focus-visible, input:focus-visible, .tab:focus-visible {
 .field input:focus { outline: none; border-color: var(--line-strong); box-shadow: 0 0 0 3px var(--glow-soft); }
 .panel-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .panel-hint.bad { color: var(--danger); }
+.panel-hint.invite-link { color: var(--fg); word-break: break-all; user-select: all; -webkit-user-select: all; }
 .panel-link.panel-source { padding-top: 0; border-top: 0; font-size: 12px; }

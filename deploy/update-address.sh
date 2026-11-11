@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Points ROKI's HTTPS name (<public-ip>.nip.io) at this server's current public address.
+# Points ROKI's HTTPS name (<public-ip>.nip.io) at this server's current public address,
+# and writes ROKI's invite link to /etc/roki/link.
 # Caddy gets the Let's Encrypt certificate for it on its own.
 # Runs every 2 minutes (roki-address.timer), so a new or changed static IP is picked up automatically.
 set -euo pipefail
@@ -20,4 +21,11 @@ if [ "$(cat /etc/caddy/Caddyfile 2>/dev/null)" != "$want" ]; then
 	systemctl reload caddy || systemctl restart caddy
 	echo "ROKI's HTTPS name is now $host"
 fi
-echo "https://$host" > /etc/roki/link
+# The invite link: https://<name>/join/<secret key>
+key="$(sed -n 's/^ROKI_KEY=//p' /etc/roki/env 2>/dev/null || true)"
+umask 077
+if [ -n "$key" ]; then
+	echo "https://$host/join/$key" > /etc/roki/link
+else
+	echo "https://$host" > /etc/roki/link
+fi

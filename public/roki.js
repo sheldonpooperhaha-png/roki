@@ -608,14 +608,59 @@
 		}
 	}
 
-	// Settings → "Download friend launcher": a small .html file with this ROKI's link filled in
+	// Settings → "Copy invite link": the secret link that gets a browser into ROKI (/join/<key>)
+	async function inviteLink() {
+		const res = await fetch("/invite.json", { cache: "no-store" });
+		if (!res.ok) throw new Error("HTTP " + res.status);
+		const { path } = await res.json();
+		if (typeof path !== "string" || !path.startsWith("/join/")) throw new Error("bad invite");
+		return location.origin + path;
+	}
+	const inviteBtn = $("invite-btn");
+	const inviteHint = $("invite-hint");
+	const inviteHintText = inviteHint.textContent;
+	const onThisPc = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+	if (onThisPc) inviteHint.textContent += " This copy of ROKI runs on your PC, so its link only works on this PC.";
+	let inviteTimer = 0;
+	inviteBtn.addEventListener("click", async () => {
+		clearTimeout(inviteTimer);
+		inviteHint.classList.remove("bad");
+		let link;
+		try {
+			link = await inviteLink();
+		} catch (e) {
+			inviteHint.textContent = "Couldn't get the invite link. Reload ROKI and try again.";
+			inviteHint.classList.add("bad");
+			return;
+		}
+		try {
+			await navigator.clipboard.writeText(link);
+			inviteBtn.textContent = "Copied!";
+			inviteTimer = setTimeout(() => { inviteBtn.textContent = "Copy invite link"; }, 2000);
+		} catch (e) {
+			// Clipboard blocked: show the link so it can be copied by hand
+			inviteHint.textContent = link;
+			inviteHint.classList.add("invite-link");
+			const range = document.createRange();
+			range.selectNodeContents(inviteHint);
+			const sel = window.getSelection();
+			sel.removeAllRanges();
+			sel.addRange(range);
+			inviteTimer = setTimeout(() => {
+				inviteHint.textContent = inviteHintText;
+				inviteHint.classList.remove("invite-link");
+			}, 30000);
+		}
+	});
+
+	// Settings → "Download friend launcher": a small .html file with this ROKI's invite link filled in
 	const launcherNote = $("launcher-note");
 	$("launcher-btn").addEventListener("click", async () => {
 		launcherNote.hidden = true;
 		try {
 			const res = await fetch("/launcher.html", { cache: "no-store" });
 			if (!res.ok) throw new Error("HTTP " + res.status);
-			const html = (await res.text()).replace("__ROKI_LINK__", location.origin);
+			const html = (await res.text()).replace("__ROKI_LINK__", await inviteLink());
 			const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
 			const a = document.createElement("a");
 			a.href = url;

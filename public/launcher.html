@@ -20,12 +20,14 @@
 </main>
 <script>
 	"use strict";
-	// ROKI launcher: opening this file takes you to ROKI, which then hides itself in an about:blank tab.
-	// To point it at a different ROKI, change the link below (or download a new launcher from ROKI's Settings).
+	// ROKI launcher: opening this file takes you into ROKI with its invite link,
+	// then ROKI hides itself in an about:blank tab.
+	// Anyone with this file can get into ROKI, so only give it to friends.
+	// To point it at a different ROKI, download a new launcher from ROKI's Settings.
 	const ROKI_LINK = "__ROKI_LINK__";
 
-	if (/^https?:\/\/[^\s"']+$/i.test(ROKI_LINK)) {
-		location.replace(ROKI_LINK.replace(/\/+$/, "") + "/#cloak");
+	if (/^https?:\/\/[^\s"'#]+$/i.test(ROKI_LINK)) {
+		location.replace(ROKI_LINK + "#cloak");
 	} else {
 		document.getElementById("msg").textContent = "This launcher doesn't have a ROKI link yet. Download a new one from Settings in ROKI.";
 	}

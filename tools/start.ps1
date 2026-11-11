@@ -62,4 +62,11 @@ if (-not (Test-Roki)) {
 	}
 }
 
-Start-Process $url
+# Open ROKI with its invite link (made on first run in roki-key.txt), which logs this browser in
+$open = $url
+$keyFile = Join-Path $root 'roki-key.txt'
+if (Test-Path $keyFile) {
+	$key = (Get-Content $keyFile -Raw).Trim()
+	if ($key -match '^[A-Za-z0-9_-]{16,128}$') { $open = "$url/join/$key" }
+}
+Start-Process $open

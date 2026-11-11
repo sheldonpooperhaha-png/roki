@@ -13,48 +13,26 @@
 <body class="login-page">
 	<main class="login">
 		<h1 class="wordmark">ROKI</h1>
-		<form class="login-form" id="login-form" autocomplete="on">
-			<label class="search-box" for="password">
-				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-				<input id="password" name="password" type="password" placeholder="Password" aria-label="Password" autocomplete="current-password" required autofocus>
-			</label>
-			<button class="login-btn" type="submit" id="login-btn">Unlock</button>
-			<p class="error" id="error" role="alert" hidden></p>
-		</form>
+		<div class="lock-card">
+			<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+			<p class="lock-title">ROKI is private</p>
+			<p class="lock-text" id="lock-text" role="status">Open your invite link to get in.</p>
+		</div>
 	</main>
 
 	<script>
 		"use strict";
-		const form = document.getElementById("login-form");
-		const input = document.getElementById("password");
-		const btn = document.getElementById("login-btn");
-		const error = document.getElementById("error");
-
-		form.addEventListener("submit", async (e) => {
-			e.preventDefault();
-			error.hidden = true;
-			btn.disabled = true;
-			btn.textContent = "Checking…";
-			try {
-				const res = await fetch("/login", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ password: input.value }),
-				});
-				const data = await res.json().catch(() => ({}));
-				if (res.ok && data.ok) {
-					location.replace(location.hash === "#cloak" ? "/#cloak" : "/");
-					return;
-				}
-				error.textContent = data.error || "Couldn't log in. Try again.";
-			} catch (err) {
-				error.textContent = "Couldn't reach ROKI. Check your connection and try again.";
-			}
-			error.hidden = false;
-			btn.disabled = false;
-			btn.textContent = "Unlock";
-			input.select();
-		});
+		// /join/<wrong key> and too many wrong links land here with ?link=bad or ?link=wait
+		const why = new URLSearchParams(location.search).get("link");
+		const text = document.getElementById("lock-text");
+		if (why === "bad") {
+			text.textContent = "That invite link doesn't work. Ask whoever sent it for the new one.";
+			text.classList.add("bad");
+		} else if (why === "wait") {
+			text.textContent = "Too many wrong links. Wait 15 minutes, then open your invite link again.";
+			text.classList.add("bad");
+		}
+		if (why) history.replaceState(null, "", "/login");
 	</script>
 </body>
 </html>

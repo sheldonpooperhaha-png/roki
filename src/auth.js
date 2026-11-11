@@ -1,21 +1,25 @@
-// ROKI password lock.
-// The password comes from the ROKI_PASSWORD environment variable. If it isn't set,
-// a random one is made at startup and printed in the console.
+// ROKI secret-link lock.
+// There's no password. ROKI has a secret key, and opening the invite link
+// (https://your-roki/join/<key>) once logs that browser in for 30 days.
+// Strangers without the link only see the lock screen.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const COOKIE = "roki_auth";
 const MAX_AGE = 60 * 60 * 24 * 30; // stay logged in for 30 days
-const MAX_FAILS = 10; // wrong tries allowed per IP...
+const MAX_FAILS = 10; // wrong links allowed per IP...
 const FAIL_WINDOW = 15 * 60 * 1000; // ...in this many milliseconds
 
-// Files anyone can load without logging in: the login page itself, its styles,
-// and the public Scramjet library files the service worker needs.
+// Pages anyone can load without the invite link: the lock screen, its styles,
+// the invite link itself, and the public Scramjet library files the service worker needs.
 // The proxy connection (/wisp/) and every ROKI page stay locked.
 const OPEN_PATHS = new Set(["/login", "/login.html", "/logout", "/roki.css", "/favicon.ico", "/sw.js"]);
-const OPEN_PREFIXES = ["/scram/", "/baremux/", "/libcurl/"];
+const OPEN_PREFIXES = ["/join/", "/scram/", "/baremux/", "/libcurl/"];
 
 const sha = (s) => createHash("sha256").update(String(s)).digest();
 const same = (a, b) => a.length === b.length && timingSafeEqual(a, b);
+
+export const newKey = () => randomBytes(18).toString("base64url");
+export const isKeyShaped = (s) => typeof s === "string" && /^[A-Za-z0-9_-]{16,128}$/.test(s);
 
 export function pathOf(url) {
 	try {
@@ -31,8 +35,8 @@ export function parseCookies(header) {
 	for (const part of String(header).split(";")) {
 		const i = part.indexOf("=");
 		if (i < 0) continue;
-		const key = part.slice(0, i).trim();
-		if (key && !(key in out)) out[key] = part.slice(i + 1).trim();
+		const name = part.slice(0, i).trim();
+		if (name && !(name in out)) out[name] = part.slice(i + 1).trim();
 	}
 	return out;
 }
@@ -42,12 +46,11 @@ export function isHttps(req) {
 	return req.protocol === "https" || fwd === "https";
 }
 
-export function createAuth(password) {
-	const generated = !password;
-	if (generated) password = randomBytes(9).toString("base64url");
+export function createAuth(key) {
+	if (!isKeyShaped(key)) throw new Error("ROKI's secret key must be 16-128 letters, numbers, - or _");
 
-	const passwordHash = sha(password);
-	const token = createHmac("sha256", password).update("roki-session-v1").digest("base64url");
+	const keyHash = sha(key);
+	const token = createHmac("sha256", key).update("roki-session-v2").digest("base64url");
 	const tokenBuf = Buffer.from(token);
 	const fails = new Map();
 
@@ -57,8 +60,8 @@ export function createAuth(password) {
 	}
 
 	return {
-		password,
-		generated,
+		// The part of the invite link after the address: /join/<key>
+		invitePath: "/join/" + key,
 
 		isOpenPath(path) {
 			return OPEN_PATHS.has(path) || OPEN_PREFIXES.some((p) => path.startsWith(p));
@@ -69,8 +72,8 @@ export function createAuth(password) {
 			return !!value && same(Buffer.from(value), tokenBuf);
 		},
 
-		checkPassword(input) {
-			return typeof input === "string" && same(sha(input), passwordHash);
+		checkKey(input) {
+			return typeof input === "string" && same(sha(input), keyHash);
 		},
 
 		allowAttempt(ip, now = Date.now()) {
