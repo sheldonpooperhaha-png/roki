@@ -1,3 +1,5 @@
+// ROKI service worker v2: the first one was installed while ROKI was cross-origin isolated.
+// Changing this file makes browsers install a fresh one that isn't.
 importScripts("/scram/scramjet.all.js");
 
 const { ScramjetServiceWorker } = $scramjetLoadWorker();

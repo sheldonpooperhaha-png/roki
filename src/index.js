@@ -52,11 +52,16 @@ const fastify = Fastify({
 	trustProxy: process.env.TRUST_PROXY === "1",
 	serverFactory: (handler) => {
 		return createServer()
-			// No Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy headers here (the Scramjet demo sets them).
-			// They make ROKI "cross-origin isolated", and current Chrome and Edge can't start the SharedWorker
-			// that carries ROKI's proxy traffic (bare-mux) on isolated pages, so sites never load or the tab crashes.
-			// Scramjet only needs isolation for synchronous XHR, which it has turned off by default.
-			.on("request", handler)
+			// ROKI is NOT cross-origin isolated (the Scramjet demo is). Isolation (COOP same-origin + COEP require-corp)
+			// stops current Chrome and Edge from starting the SharedWorker that carries ROKI's proxy traffic (bare-mux),
+			// so sites never load or the tab crashes. Scramjet only needs isolation for synchronous XHR, which is off.
+			// The headers are sent as "unsafe-none" on purpose: browsers that cached ROKI's pages from when it was
+			// isolated keep the old headers on a 304 unless the server sends new values.
+			.on("request", (req, res) => {
+				res.setHeader("Cross-Origin-Opener-Policy", "unsafe-none");
+				res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
+				handler(req, res);
+			})
 			.on("upgrade", (req, socket, head) => {
 				// The proxy connection only opens for logged-in browsers
 				if (req.url.endsWith("/wisp/") && auth.isAuthed(req.headers.cookie)) {
