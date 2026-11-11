@@ -13,6 +13,7 @@ import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 import { createAuth, isHttps, isKeyShaped, newKey, pathOf } from "./auth.js";
 import { listGames } from "./games.js";
 import { createIconCache } from "./icons.js";
+import { WISP_OPTIONS } from "./wisp-config.js";
 
 const publicPath = fileURLToPath(new URL("../public/", import.meta.url));
 const gamesPath = fileURLToPath(new URL("../public/games/", import.meta.url));
@@ -42,19 +43,9 @@ function loadKey() {
 const auth = createAuth(loadKey());
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Wisp Configuration: Refer to the documentation at https://www.npmjs.com/package/@mercuryworkshop/wisp-js
-
+// Proxy server settings (see src/wisp-config.js)
 logging.set_level(logging.NONE);
-Object.assign(wisp.options, {
-	allow_udp_streams: false,
-	hostname_blacklist: [/example\.com/],
-	// Cloudflare family DNS (blocks malware and adult sites). "resolve" makes wisp actually use these servers.
-	dns_method: "resolve",
-	dns_servers: ["1.1.1.3", "1.0.0.3"],
-	// Connect over IPv4 first. Wisp's default tries IPv6 first, and on servers or home networks
-	// where IPv6 doesn't really work (like the Lightsail server), every site just hangs.
-	dns_result_order: "ipv4first",
-});
+Object.assign(wisp.options, WISP_OPTIONS);
 
 const fastify = Fastify({
 	// Set TRUST_PROXY=1 when running behind a host's load balancer so login limits use the real visitor IP
