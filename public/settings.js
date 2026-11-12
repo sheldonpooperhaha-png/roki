@@ -9,23 +9,29 @@
 	};
 
 	/* ---------- Themes ---------- */
-	// The colors live in roki.css under :root[data-theme="..."]; "legacy" is the plain :root.
+	// The colors live in roki.css under :root[data-theme="..."]; "night" is the plain :root.
 	const THEMES = [
-		["legacy", "Legacy"],
-		["blue", "Blue"],
-		["midnight", "Midnight"],
-		["forest", "Forest"],
-		["sunset", "Sunset"],
-		["contrast", "High Contrast"],
+		["night", "Night"],
+		["dawn", "Dawn (light)"],
+		["dusk", "Dusk"],
+		["aurora", "Aurora"],
+		["eclipse", "Eclipse (high contrast)"],
 	];
+	// Themes from before ROKI 3 carry over to the closest new one
+	const OLD_THEMES = { legacy: "night", blue: "night", midnight: "night", forest: "aurora", sunset: "dusk", contrast: "eclipse" };
 	const themeEl = $("theme");
 	themeEl.innerHTML = THEMES.map(([v, label]) => `<option value="${v}">${label}</option>`).join("");
 	function applyTheme(t) {
-		if (t === "legacy") document.documentElement.removeAttribute("data-theme");
+		if (t === "night") document.documentElement.removeAttribute("data-theme");
 		else document.documentElement.setAttribute("data-theme", t);
+		document.dispatchEvent(new Event("roki:theme"));
 	}
-	let theme = store.get("theme", "legacy");
-	if (!THEMES.some(([v]) => v === theme)) theme = "legacy";
+	let theme = store.get("theme", "night");
+	if (OLD_THEMES[theme]) {
+		theme = OLD_THEMES[theme];
+		store.set("theme", theme);
+	}
+	if (!THEMES.some(([v]) => v === theme)) theme = "night";
 	themeEl.value = theme;
 	applyTheme(theme);
 	themeEl.addEventListener("change", () => {

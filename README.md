@@ -6,12 +6,12 @@ ROKI is built on the [Scramjet demo app](https://github.com/MercuryWorkshop/Scra
 
 ## What's in it
 
-- **Start page:** a floating top bar (Games, Apps, Media, Settings), a big search bar and big tiles for favorite sites.
-- **Apps and Media:** searchable grids of about 50 sites, listed in `public/catalog.js`. Each tile shows the site's own icon, fetched live through ROKI's server.
+- **Start page:** a night sky. A big clock over a live starfield with tonight's moon phase, a search bar and round favorites. A rail on the left (along the bottom on phones) holds Games, Apps, Media, Settings and the Hide and Panic buttons.
+- **Apps and Media:** searchable grids of about 50 sites, laid out like a phone's home screen and listed in `public/catalog.js`. Each icon is the site's own, fetched live through ROKI's server.
 - **Tabs:** sites open through the [Scramjet](https://github.com/MercuryWorkshop/scramjet) proxy, each in its own tab with back, forward and reload.
 - **Secret invite link, no password:** opening the invite link (`/join/<secret key>`) once gets a browser in for 30 days. Everyone else only sees a lock screen, and 10 wrong links locks that address out for 15 minutes.
 - **Games:** anything in `public/games` shows up on the Games page (see `public/games/README.txt`), with search and sorting. Comes with DOOM's free shareware episode (see `public/games/DOOM/README.txt`) and Star Catcher, plus a "Play online" list of 130+ free games on their official sites, Poki and Coolmath (Krunker, Shell Shockers, skribbl.io, Paper.io 2, Drive Mad, Fireboy and Watergirl and more). Each tile shows the game's own cover picture, which ROKI's server fetches from the game's page (`src/game-art.js`); add or remove games in `public/catalog.js`.
-- **Settings page:** six color themes (Legacy, Blue, Midnight, Forest, Sunset, High Contrast), optional stars, tab cloak (fake tab name and icon from presets or your own), about:blank cloak (once or every time), panic key, ad and tracker blocking, "ask before closing", site data wiping, invite link and friend launcher, and settings export/import.
+- **Settings page:** five themes named for the sky (Night, Dawn, Dusk, Aurora, Eclipse for high contrast), stars, twinkle and shooting stars, tab cloak (fake tab name and icon from presets or your own), about:blank cloak (once or every time), panic key, ad and tracker blocking, "ask before closing", site data wiping, invite link and friend launcher, and settings export/import.
 - **Corner buttons:** jump into about:blank, panic, or open the source code.
 
 ## Run it on your computer

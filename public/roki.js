@@ -156,7 +156,8 @@
 	const tabsEl = $("tabs");
 	const viewport = $("viewport");
 	const home = $("home");
-	const pageEls = { home: $("home-main"), games: $("games-main"), apps: $("apps-main"), media: $("media-main"), settings: $("settings-main") };
+	const pagesEl = $("pages"); // scrolls; the rail beside it stays put
+	const pageEls ={ home: $("home-main"), games: $("games-main"), apps: $("apps-main"), media: $("media-main"), settings: $("settings-main") };
 	const navLinks = [...document.querySelectorAll(".topnav-link")];
 	const addr = $("addr");
 	const q = $("q");
@@ -245,7 +246,7 @@
 		home.hidden = !onPage;
 		for (const [view, el] of Object.entries(pageEls)) el.hidden = tab.view !== view;
 		navLinks.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.page === tab.view)));
-		if (onPage) home.scrollTop = 0;
+		if (onPage) pagesEl.scrollTop = 0;
 		setStarsVisible(onPage);
 		if (document.activeElement !== addr) addr.value = addrText(tab);
 		updateNav();
@@ -656,15 +657,60 @@
 	}
 
 
-	/* ---------- Clock ---------- */
+	/* ---------- Clock and tonight's moon (home page) ---------- */
 	const clockEl = $("clock");
 	const dateEl = $("hero-date");
+	const moonEl = $("moon");
+	const moonText = $("moon-text");
 	const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 	const dateFmt = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" });
+
+	// The moon's phase from its age: days since a known new moon (6 Jan 2000, 18:14 UTC),
+	// in cycles of 29.53 days. Close enough for a picture and "about how full" (within a few %).
+	const MOON_CYCLE = 29.530588853;
+	const KNOWN_NEW_MOON = Date.UTC(2000, 0, 6, 18, 14);
+	const MOON_NAMES = ["New moon", "Waxing crescent", "First quarter", "Waxing gibbous", "Full moon", "Waning gibbous", "Last quarter", "Waning crescent"];
+	function moonPhase(when) {
+		const age = (((when - KNOWN_NEW_MOON) / 86400000) % MOON_CYCLE + MOON_CYCLE) % MOON_CYCLE;
+		const p = age / MOON_CYCLE; // 0 new, 0.5 full
+		return { p, lit: (1 - Math.cos(2 * Math.PI * p)) / 2, name: MOON_NAMES[Math.floor(p * 8 + 0.5) % 8] };
+	}
+	// Draws the lit part: the bright edge on the right while it grows, on the left while it shrinks
+	function drawMoon(p) {
+		const r = 9.5, top = 12 - r, bottom = 12 + r;
+		const waxing = p < 0.5;
+		const rx = (Math.abs(Math.cos(2 * Math.PI * p)) * r).toFixed(2);
+		const crescent = p < 0.25 || p > 0.75;
+		const limbSweep = waxing ? 1 : 0;
+		const termSweep = waxing === crescent ? 0 : 1;
+		moonEl.innerHTML =
+			`<circle cx="12" cy="12" r="${r}" class="moon-dark"/>` +
+			`<path class="moon-lit" d="M12 ${top} A${r} ${r} 0 0 ${limbSweep} 12 ${bottom} A${rx} ${r} 0 0 ${termSweep} 12 ${top}Z"/>`;
+	}
+	let moonDay = "";
 	function tick() {
 		const now = new Date();
-		clockEl.textContent = timeFmt.format(now);
-		dateEl.textContent = dateFmt.format(now);
+		const parts = timeFmt.formatToParts(now);
+		const time = parts.filter((x) => x.type !== "dayPeriod").map((x) => x.value).join("").trim();
+		const period = parts.find((x) => x.type === "dayPeriod");
+		const timeSpan = document.createElement("span");
+		timeSpan.textContent = time;
+		const nodes = [timeSpan];
+		if (period) {
+			const ps = document.createElement("span");
+			ps.className = "clock-period";
+			ps.textContent = period.value;
+			nodes.push(ps);
+		}
+		clockEl.replaceChildren(...nodes);
+		const day = dateFmt.format(now);
+		dateEl.textContent = day;
+		if (day !== moonDay) {
+			moonDay = day;
+			const m = moonPhase(now.getTime());
+			drawMoon(m.p);
+			moonText.textContent = `${m.name}, ${Math.round(m.lit * 100)}% lit`;
+		}
 	}
 	tick();
 	setInterval(tick, 1000);
@@ -900,10 +946,16 @@
 
 	/* ---------- Starfield ---------- */
 	const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-	const fx = { stars: store.get("fx-stars", false), twinkle: store.get("fx-twinkle", !reduce), shooting: store.get("fx-shooting", !reduce) };
+	const fx = { stars: store.get("fx-stars", true), twinkle: store.get("fx-twinkle", !reduce), shooting: store.get("fx-shooting", !reduce) };
 	const canvas = $("stars");
 	const ctx = canvas.getContext("2d");
-	const starColor = getComputedStyle(document.documentElement).getPropertyValue("--star").trim() || "#ffffff";
+	// Star color comes from the theme (--star-rgb: "r, g, b"); settings.js says when the theme changes
+	let starRgb = "255, 255, 255";
+	function readStarColor() {
+		starRgb = getComputedStyle(document.documentElement).getPropertyValue("--star-rgb").trim() || "255, 255, 255";
+	}
+	readStarColor();
+	document.addEventListener("roki:theme", () => { readStarColor(); restartStars(); });
 	let w = 0, h = 0, stars = [], shooters = [], raf = 0, nextShot = 0, starsVisible = true;
 
 	function makeStars() {
@@ -926,8 +978,8 @@
 			const fade = 1 - s.life / 60;
 			const tx = s.x - s.vx * 14, ty = s.y - s.vy * 14;
 			const g = ctx.createLinearGradient(s.x, s.y, tx, ty);
-			g.addColorStop(0, "rgba(255,255,255," + (0.9 * fade).toFixed(3) + ")");
-			g.addColorStop(1, "rgba(255,255,255,0)");
+			g.addColorStop(0, "rgba(" + starRgb + "," + (0.9 * fade).toFixed(3) + ")");
+			g.addColorStop(1, "rgba(" + starRgb + ",0)");
 			ctx.strokeStyle = g;
 			ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(tx, ty); ctx.stroke();
 		}
@@ -935,7 +987,7 @@
 	function draw(t) {
 		ctx.clearRect(0, 0, w, h);
 		if (!fx.stars) return;
-		ctx.fillStyle = starColor;
+		ctx.fillStyle = "rgb(" + starRgb + ")";
 		for (const s of stars) {
 			const tw = fx.twinkle ? 0.55 + 0.45 * Math.sin((t / 1000) * s.s + s.p) : 1;
 			ctx.globalAlpha = s.a * tw;
