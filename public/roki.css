@@ -313,6 +313,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .app-grid .app-icon, .art-grid .app-icon {
 	position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0;
 }
+/* A small icon (some sites only have 32px) sits in the middle, at most twice its size, so it stays sharp */
+.app-grid .app-tile.small-icon .app-icon, .art-grid .app-tile.small-icon .app-icon {
+	inset: 0; margin: auto; width: min(var(--icon-px, 64px), 46%); height: min(var(--icon-px, 64px), 46%);
+	object-fit: contain; border-radius: 14%;
+}
 .app-grid .app-tile .app-letters, .art-grid .app-tile .app-letters {
 	position: absolute; inset: 0; width: auto; height: auto; border-radius: 0; background: none; font-size: 44px;
 }

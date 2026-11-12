@@ -461,7 +461,15 @@
 			letters.textContent = initials(app.name);
 			img.replaceWith(letters);
 		};
-		img.src = "/site-icon?d=" + encodeURIComponent(app.domain) + "&v=2"; // v: new, sharper icons
+		// Big icons fill their tile; a small one (some sites only have 32px) would look blurry stretched,
+		// so it sits in the middle at a size where it stays sharp
+		img.onload = () => {
+			if (img.naturalWidth && img.naturalWidth < 128) {
+				btn.classList.add("small-icon");
+				btn.style.setProperty("--icon-px", Math.max(img.naturalWidth * 2, 40) + "px");
+			}
+		};
+		img.src = "/site-icon?d=" + encodeURIComponent(app.domain) + "&v=3"; // v: new, sharper icons
 		const name = document.createElement("span");
 		name.className = "app-name";
 		name.textContent = app.name;

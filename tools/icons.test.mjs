@@ -110,6 +110,23 @@ test("uses the apple-touch-icon when there's no manifest", async () => {
 	assert.deepEqual(imageSize(icon.body), { w: 180, h: 180 });
 });
 
+test("tries the usual /apple-touch-icon.png when the page doesn't name an icon", async () => {
+	const web = fakeWeb({
+		"https://plain.com/": { body: `<head><title>x</title></head>`, type: "text/html" },
+		"https://plain.com/apple-touch-icon.png": { body: png(180, 180), type: "image/png" },
+		[S2("plain.com")]: { body: png(32, 32), type: "image/png" },
+	});
+	const icon = await createIconCache({ fetchImpl: web.fetchImpl, lookupImpl })("plain.com");
+	assert.deepEqual(imageSize(icon.body), { w: 180, h: 180 });
+	assert.ok(!web.calls.includes(S2("plain.com")));
+});
+
+test("tries /apple-touch-icon.png even when the site's page can't be read", async () => {
+	const web = fakeWeb({ "https://locked.com/apple-touch-icon.png": { body: png(180, 180), type: "image/png" } });
+	const icon = await createIconCache({ fetchImpl: web.fetchImpl, lookupImpl })("locked.com");
+	assert.deepEqual(imageSize(icon.body), { w: 180, h: 180 });
+});
+
 test("skips icons that turn out tiny and falls back to Google's", async () => {
 	const web = fakeWeb({
 		"https://tiny.com/": { body: `<link rel="apple-touch-icon" href="/apple.png">`, type: "text/html" },

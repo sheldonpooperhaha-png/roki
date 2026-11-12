@@ -199,6 +199,10 @@ export function createIconCache({
 	async function load(domain) {
 		const own = await siteIcon(domain).catch(() => null);
 		if (own) return own;
+		// Lots of sites keep a 180px icon at this usual address even when their page doesn't name it
+		const touch = await fetchImage(`https://${domain}/apple-touch-icon.png`).catch(() => null);
+		const size = touch && imageSize(touch.body);
+		if (touch && (!size || Math.min(size.w, size.h) >= SMALLEST)) return touch;
 		return fetchImage(`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=256`);
 	}
 
