@@ -9,7 +9,7 @@
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" crossorigin="anonymous">
 	<link rel="stylesheet" href="roki.css">
-	<script>try{var t=JSON.parse(localStorage.getItem("roki:theme"));t={sunset:"dusk",forest:"aurora",contrast:"eclipse"}[t]||t;if(t&&t!=="night"&&["dawn","dusk","aurora","eclipse"].indexOf(t)>=0)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+	<script>try{var t=JSON.parse(localStorage.getItem("roki:theme"));t={blue:"ocean",sunset:"dusk",contrast:"eclipse"}[t]||t;if(t&&t!=="night"&&["dawn","dusk","aurora","nebula","ocean","ember","forest","graphite","sakura","candy","classic","eclipse"].indexOf(t)>=0)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 
 	<script src="/scram/scramjet.all.js"></script>
 	<script src="/baremux/index.js"></script>
@@ -56,42 +56,32 @@
 
 		<div class="viewport" id="viewport">
 			<div class="home" id="home">
-				<!-- The rail: ROKI's pages and the quick exits. On phones it sits along the bottom. -->
-				<nav class="rail" aria-label="ROKI">
-					<button class="rail-brand" type="button" id="nav-home" title="Home" aria-label="ROKI home">
-						<svg class="rail-mark" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5c.6 4.9 2.2 6.6 6.8 7.4.5.1.5.8 0 .9-4.6.8-6.2 2.5-6.8 7.4-.1.5-.8.5-.9 0-.6-4.9-2.2-6.6-6.8-7.4-.5-.1-.5-.8 0-.9 4.6-.8 6.2-2.5 6.8-7.4.1-.5.8-.5.9 0Z" fill="currentColor"/><circle cx="19.5" cy="19" r="1.6" fill="currentColor"/></svg>
-						<span>roki</span>
-					</button>
-					<div class="rail-links">
-						<button class="topnav-link" type="button" data-page="games" aria-pressed="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="5"/><path d="M7 10v4M5 12h4"/><path d="M15.5 11h.01M18 13h.01"/></svg><span>Games</span></button>
-						<button class="topnav-link" type="button" data-page="apps" aria-pressed="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="7" r="3"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/></svg><span>Apps</span></button>
-						<button class="topnav-link" type="button" data-page="media" aria-pressed="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="3"/><path d="M8 21h8M12 17v4"/><path d="M10 8.5v5l4-2.5z" fill="currentColor"/></svg><span>Media</span></button>
-						<button class="topnav-link" type="button" data-page="settings" aria-pressed="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Settings</span></button>
+				<nav class="topnav" aria-label="ROKI">
+					<button class="topnav-brand" type="button" id="nav-home">ROKI</button>
+					<div class="topnav-links">
+						<button class="topnav-link" type="button" data-page="games" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="5"/><path d="M7 10v4M5 12h4"/><path d="M15.5 11h.01M18 13h.01"/></svg><span>Games</span></button>
+						<button class="topnav-link" type="button" data-page="apps" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg><span>Apps</span></button>
+						<button class="topnav-link" type="button" data-page="media" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M10 8.5v5l4-2.5z" fill="currentColor"/></svg><span>Media</span></button>
+						<button class="topnav-link" type="button" data-page="settings" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Settings</span></button>
 					</div>
-					<div class="rail-actions">
-						<button class="rail-action" type="button" id="corner-cloak" title="Open in about:blank" aria-label="Open in about:blank"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2.5 12S6 19 12 19a9.6 9.6 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg><span>Hide</span></button>
-						<button class="rail-action rail-panic" type="button" id="corner-panic" title="Panic: leave now" aria-label="Panic: leave now"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M12 8v4M12 16h.01"/></svg><span>Panic</span></button>
+					<div class="topnav-end">
+						<span class="topnav-clock" id="clock" aria-live="off"></span>
+						<button class="topnav-action" type="button" id="corner-cloak" title="Hide: open in about:blank" aria-label="Hide: open in about:blank"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2.5 12S6 19 12 19a9.6 9.6 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg><span>Hide</span></button>
+						<button class="topnav-action topnav-panic" type="button" id="corner-panic" title="Panic: leave now" aria-label="Panic: leave now"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M12 8v4M12 16h.01"/></svg><span>Panic</span></button>
 					</div>
 				</nav>
 
-				<div class="pages" id="pages">
 				<main class="page page-home" id="home-main">
-					<h1 class="visually-hidden">ROKI</h1>
-					<div class="sky">
-						<p class="clock" id="clock" aria-live="off"></p>
-						<p class="sky-line">
-							<span id="hero-date">&nbsp;</span>
-							<span class="moon-phase"><svg class="moon" id="moon" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"></svg><span id="moon-text"></span></span>
-						</p>
-					</div>
+					<h1 class="hero-title">ROKI</h1>
+					<p class="hero-sub" id="hero-date">&nbsp;</p>
 					<form class="hero-search" id="home-form" role="search" autocomplete="off">
 						<label class="big-search" for="q">
 							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-							<input id="q" type="text" placeholder="Search the web or type a link" aria-label="Search the web or type a link" spellcheck="false">
+							<input id="q" type="text" placeholder="Search the web or enter a link" aria-label="Search the web or enter a link" spellcheck="false">
 						</label>
 					</form>
 					<p class="error" id="error" role="alert" hidden></p>
-					<ul class="feature-grid" id="feature-grid" aria-label="Favorites"></ul>
+					<ul class="feature-grid" id="feature-grid" aria-label="Apps"></ul>
 				</main>
 
 				<main class="page" id="games-main" hidden>
@@ -144,13 +134,14 @@
 
 				<main class="page page-settings" id="settings-main" hidden>
 					<header class="settings-header">
+						<p class="eyebrow">Site controls</p>
 						<h1 class="settings-title">Settings</h1>
-						<p class="settings-lead">How ROKI looks, hides and behaves. Saved in this browser.</p>
+						<p class="settings-lead">Change how ROKI looks, hides and behaves. Saved in this browser.</p>
 					</header>
 					<div class="card-grid">
 						<section class="card" aria-labelledby="c-theme">
 							<h2 id="c-theme">Theme</h2>
-							<p class="card-desc">ROKI's sky at different times of night.</p>
+							<p class="card-desc">Pick ROKI's colors.</p>
 							<label class="field-label" for="theme">Theme</label>
 							<select class="field-select" id="theme"></select>
 							<label class="toggle-row" for="fx-stars"><span>Stars</span><input class="switch" type="checkbox" id="fx-stars"></label>
@@ -259,7 +250,7 @@
 						</section>
 					</div>
 				</main>
-				</div>
+
 			</div>
 		</div>
 	</div>

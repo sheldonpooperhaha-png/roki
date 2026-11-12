@@ -156,7 +156,6 @@
 	const tabsEl = $("tabs");
 	const viewport = $("viewport");
 	const home = $("home");
-	const pagesEl = $("pages"); // scrolls; the rail beside it stays put
 	const pageEls ={ home: $("home-main"), games: $("games-main"), apps: $("apps-main"), media: $("media-main"), settings: $("settings-main") };
 	const navLinks = [...document.querySelectorAll(".topnav-link")];
 	const addr = $("addr");
@@ -246,7 +245,7 @@
 		home.hidden = !onPage;
 		for (const [view, el] of Object.entries(pageEls)) el.hidden = tab.view !== view;
 		navLinks.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.page === tab.view)));
-		if (onPage) pagesEl.scrollTop = 0;
+		if (onPage) home.scrollTop = 0;
 		setStarsVisible(onPage);
 		if (document.activeElement !== addr) addr.value = addrText(tab);
 		updateNav();
@@ -657,60 +656,15 @@
 	}
 
 
-	/* ---------- Clock and tonight's moon (home page) ---------- */
+	/* ---------- Clock (top bar) and date (home page) ---------- */
 	const clockEl = $("clock");
 	const dateEl = $("hero-date");
-	const moonEl = $("moon");
-	const moonText = $("moon-text");
 	const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 	const dateFmt = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" });
-
-	// The moon's phase from its age: days since a known new moon (6 Jan 2000, 18:14 UTC),
-	// in cycles of 29.53 days. Close enough for a picture and "about how full" (within a few %).
-	const MOON_CYCLE = 29.530588853;
-	const KNOWN_NEW_MOON = Date.UTC(2000, 0, 6, 18, 14);
-	const MOON_NAMES = ["New moon", "Waxing crescent", "First quarter", "Waxing gibbous", "Full moon", "Waning gibbous", "Last quarter", "Waning crescent"];
-	function moonPhase(when) {
-		const age = (((when - KNOWN_NEW_MOON) / 86400000) % MOON_CYCLE + MOON_CYCLE) % MOON_CYCLE;
-		const p = age / MOON_CYCLE; // 0 new, 0.5 full
-		return { p, lit: (1 - Math.cos(2 * Math.PI * p)) / 2, name: MOON_NAMES[Math.floor(p * 8 + 0.5) % 8] };
-	}
-	// Draws the lit part: the bright edge on the right while it grows, on the left while it shrinks
-	function drawMoon(p) {
-		const r = 9.5, top = 12 - r, bottom = 12 + r;
-		const waxing = p < 0.5;
-		const rx = (Math.abs(Math.cos(2 * Math.PI * p)) * r).toFixed(2);
-		const crescent = p < 0.25 || p > 0.75;
-		const limbSweep = waxing ? 1 : 0;
-		const termSweep = waxing === crescent ? 0 : 1;
-		moonEl.innerHTML =
-			`<circle cx="12" cy="12" r="${r}" class="moon-dark"/>` +
-			`<path class="moon-lit" d="M12 ${top} A${r} ${r} 0 0 ${limbSweep} 12 ${bottom} A${rx} ${r} 0 0 ${termSweep} 12 ${top}Z"/>`;
-	}
-	let moonDay = "";
 	function tick() {
 		const now = new Date();
-		const parts = timeFmt.formatToParts(now);
-		const time = parts.filter((x) => x.type !== "dayPeriod").map((x) => x.value).join("").trim();
-		const period = parts.find((x) => x.type === "dayPeriod");
-		const timeSpan = document.createElement("span");
-		timeSpan.textContent = time;
-		const nodes = [timeSpan];
-		if (period) {
-			const ps = document.createElement("span");
-			ps.className = "clock-period";
-			ps.textContent = period.value;
-			nodes.push(ps);
-		}
-		clockEl.replaceChildren(...nodes);
-		const day = dateFmt.format(now);
-		dateEl.textContent = day;
-		if (day !== moonDay) {
-			moonDay = day;
-			const m = moonPhase(now.getTime());
-			drawMoon(m.p);
-			moonText.textContent = `${m.name}, ${Math.round(m.lit * 100)}% lit`;
-		}
+		clockEl.textContent = timeFmt.format(now);
+		dateEl.textContent = dateFmt.format(now);
 	}
 	tick();
 	setInterval(tick, 1000);

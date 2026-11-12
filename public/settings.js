@@ -15,10 +15,18 @@
 		["dawn", "Dawn (light)"],
 		["dusk", "Dusk"],
 		["aurora", "Aurora"],
+		["nebula", "Nebula"],
+		["ocean", "Deep sea"],
+		["ember", "Ember"],
+		["forest", "Forest"],
+		["graphite", "Graphite"],
+		["sakura", "Sakura (light)"],
+		["candy", "Candy"],
+		["classic", "Classic (ROKI 2)"],
 		["eclipse", "Eclipse (high contrast)"],
 	];
 	// Themes from before ROKI 3 carry over to the closest new one
-	const OLD_THEMES = { legacy: "night", blue: "night", midnight: "night", forest: "aurora", sunset: "dusk", contrast: "eclipse" };
+	const OLD_THEMES = { legacy: "night", blue: "ocean", midnight: "night", sunset: "dusk", contrast: "eclipse" };
 	const themeEl = $("theme");
 	themeEl.innerHTML = THEMES.map(([v, label]) => `<option value="${v}">${label}</option>`).join("");
 	function applyTheme(t) {
