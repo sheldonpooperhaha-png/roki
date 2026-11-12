@@ -1,5 +1,5 @@
 "use strict";
-// ROKI's app list: the big tiles on the home page and the Apps and Media pages.
+// ROKI's app list: the big tiles on the home page, the Apps and Media pages and the Games page's "Play online".
 // Icons are each site's own, loaded live through ROKI's server (/site-icon?d=<domain>).
 // bg is the tile color; dark: true means the tile is light, so its name is written in dark text.
 // To add an app, add a line here. Leave out sites made for pirating movies, shows or music.
@@ -48,6 +48,27 @@ window.ROKI_CATALOG = {
 		{ name: "Wattpad", url: "https://www.wattpad.com", domain: "wattpad.com", bg: "#ff500a" },
 		{ name: "DuckDuckGo", url: "https://duckduckgo.com", domain: "duckduckgo.com", bg: "#de5833" },
 		{ name: "Weather", url: "https://weather.com", domain: "weather.com", bg: "#005986" },
+	],
+
+	// Games page, "Play online": free games on their own official sites, opened through the proxy
+	games: [
+		{ name: "Krunker", url: "https://krunker.io", domain: "krunker.io", bg: "#1b1b1f" },
+		{ name: "Shell Shockers", url: "https://shellshock.io", domain: "shellshock.io", bg: "#f2c94c", dark: true },
+		{ name: "Smash Karts", url: "https://smashkarts.io", domain: "smashkarts.io", bg: "#2b65ff" },
+		{ name: "1v1.LOL", url: "https://1v1.lol", domain: "1v1.lol", bg: "#1565c0" },
+		{ name: "Bloxd.io", url: "https://bloxd.io", domain: "bloxd.io", bg: "#3d8b37" },
+		{ name: "Minecraft Classic", url: "https://classic.minecraft.net", domain: "classic.minecraft.net", bg: "#5d8c3a" },
+		{ name: "slither.io", url: "https://slither.io", domain: "slither.io", bg: "#16212b" },
+		{ name: "agar.io", url: "https://agar.io", domain: "agar.io", bg: "#3ba7ff" },
+		{ name: "diep.io", url: "https://diep.io", domain: "diep.io", bg: "#00b2e1" },
+		{ name: "Zombs Royale", url: "https://zombsroyale.io", domain: "zombsroyale.io", bg: "#2c3e50" },
+		{ name: "Venge.io", url: "https://venge.io", domain: "venge.io", bg: "#a4161a" },
+		{ name: "Subway Surfers", url: "https://poki.com/en/g/subway-surfers", domain: "poki.com", bg: "#f6a700", dark: true },
+		{ name: "Stickman Hook", url: "https://poki.com/en/g/stickman-hook", domain: "poki.com", bg: "#ff6b6b" },
+		{ name: "Moto X3M", url: "https://poki.com/en/g/moto-x3m", domain: "poki.com", bg: "#c62828" },
+		{ name: "Retro Bowl", url: "https://poki.com/en/g/retro-bowl", domain: "poki.com", bg: "#14532d" },
+		{ name: "Run 3", url: "https://www.coolmathgames.com/0-run-3", domain: "coolmathgames.com", bg: "#263238" },
+		{ name: "Wordle", url: "https://www.nytimes.com/games/wordle/index.html", domain: "nytimes.com", bg: "#6aaa64" },
 	],
 
 	media: [

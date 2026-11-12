@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+	<defs>
+		<radialGradient id="g" cx="50%" cy="72%" r="75%">
+			<stop offset="0" stop-color="#d1401a"/>
+			<stop offset="0.45" stop-color="#6e1308"/>
+			<stop offset="1" stop-color="#140303"/>
+		</radialGradient>
+	</defs>
+	<rect width="400" height="400" fill="url(#g)"/>
+	<g fill="#ffb347" opacity="0.55">
+		<circle cx="70" cy="320" r="3"/><circle cx="120" cy="290" r="2"/><circle cx="300" cy="300" r="2.5"/>
+		<circle cx="340" cy="250" r="2"/><circle cx="210" cy="340" r="3"/><circle cx="250" cy="270" r="1.8"/>
+	</g>
+	<text x="200" y="215" text-anchor="middle" font-family="Impact, 'Arial Black', system-ui, sans-serif" font-size="104" font-weight="900" letter-spacing="4" fill="#f2f2f2">DOOM</text>
+	<text x="200" y="262" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="700" letter-spacing="6" fill="#ffd0a0">1993 · SHAREWARE</text>
+</svg>

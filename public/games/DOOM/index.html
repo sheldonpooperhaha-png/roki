@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DOOM (1993, shareware)</title>
+<style>
+	html, body { margin: 0; height: 100%; background: #000; color: #e8e8e8; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+	body { display: flex; flex-direction: column; }
+	.stage { flex: 1; min-height: 0; display: grid; place-items: center; }
+	/* DOOM draws 320x200 pixels that were shown on 4:3 screens, so stretch to 4:3 */
+	canvas { display: block; width: min(100vw, calc((100vh - 34px) * 4 / 3)); aspect-ratio: 4 / 3; image-rendering: pixelated; background: #000; outline: none; }
+	.help {
+		flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; padding: 8px 12px;
+		background: #111; color: #9a9a9a; font-size: 12px; line-height: 1.4;
+	}
+	.help b { color: #e8e8e8; font-weight: 600; }
+	.msg { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 0 16px; font-size: 15px; color: #bbb; pointer-events: none; }
+	/* On-screen buttons for phones and tablets */
+	.pad { display: none; }
+	@media (pointer: coarse) {
+		.help { display: none; }
+		.pad {
+			position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; align-items: flex-end;
+			padding: 12px max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+			pointer-events: none;
+		}
+		.pad-group { display: grid; gap: 8px; pointer-events: auto; }
+		.dpad { grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(2, 54px); }
+		.acts { grid-template-columns: repeat(2, 64px); }
+		.pad button {
+			border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 12px; background: rgba(255, 255, 255, 0.12);
+			color: #fff; font: 600 13px system-ui, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none;
+		}
+		.pad button.down { background: rgba(255, 255, 255, 0.35); }
+		.acts button { height: 54px; }
+		.up { grid-column: 2; }
+		.left { grid-column: 1; grid-row: 2; } .dn { grid-column: 2; grid-row: 2; } .right { grid-column: 3; grid-row: 2; }
+	}
+</style>
+</head>
+<body>
+<div class="stage"><canvas id="screen" width="640" height="400" tabindex="0" aria-label="DOOM"></canvas></div>
+<div class="help">
+	<span><b>Arrows</b> move</span><span><b>Ctrl</b> fire</span><span><b>Space</b> open doors</span>
+	<span><b>Shift</b> run</span><span><b>Alt</b> + arrows strafe</span><span><b>1–7</b> weapons</span>
+	<span><b>Enter</b> pick in menus</span><span><b>Esc</b> menu</span>
+</div>
+<p class="msg" id="msg">Loading DOOM…</p>
+<div class="pad" aria-hidden="true">
+	<div class="pad-group dpad">
+		<button class="up" data-key="173">▲</button>
+		<button class="left" data-key="172">◀</button><button class="dn" data-key="175">▼</button><button class="right" data-key="174">▶</button>
+	</div>
+	<div class="pad-group acts">
+		<button data-key="27">Menu</button><button data-key="13">Enter</button>
+		<button data-key="32">Use</button><button data-key="157">Fire</button>
+	</div>
+</div>
+<script>
+"use strict";
+// DOOM (1993) shareware episode, running as WebAssembly.
+// doom.wasm is id Software's DOOM source (GPL-2.0) built for the web by Cornelius Diekmann
+// (github.com/diekmann/wasm-fizzbuzz), with the unmodified shareware doom1.wad inside. See README.txt.
+// The game can only draw frames and print log lines; it gets nothing else from the page.
+(async () => {
+	const W = 640, H = 400;
+	const canvas = document.getElementById("screen");
+	const ctx = canvas.getContext("2d");
+	const msg = document.getElementById("msg");
+	const memory = new WebAssembly.Memory({ initial: 108 });
+	const noop = () => {};
+
+	let game;
+	try {
+		game = await WebAssembly.instantiateStreaming(fetch("doom.wasm"), {
+			js: {
+				js_console_log: noop,
+				js_stdout: noop,
+				js_stderr: noop,
+				js_milliseconds_since_start: () => performance.now(),
+				js_draw_screen: (ptr) => {
+					ctx.putImageData(new ImageData(new Uint8ClampedArray(memory.buffer, ptr, W * H * 4), W, H), 0, 0);
+				},
+			},
+			env: { memory },
+		});
+	} catch (e) {
+		msg.textContent = "Couldn't load DOOM. Reload the page to try again.";
+		return;
+	}
+	msg.remove();
+	const doom = game.instance.exports;
+
+	// Browser keys → DOOM's key numbers (doomdef.h)
+	const SPECIAL = {
+		ArrowLeft: 172, ArrowRight: 174, ArrowUp: 173, ArrowDown: 175,
+		Control: 157, Alt: 184, Shift: 182, Enter: 13, Escape: 27, Tab: 9, Backspace: 127, " ": 32, Pause: 255,
+	};
+	function doomKey(e) {
+		if (e.key in SPECIAL) return SPECIAL[e.key];
+		if (/^F([1-9]|1[0-2])$/.test(e.key)) return 186 + Number(e.key.slice(1)); // F1 = 187
+		if (/^Digit\d$/.test(e.code)) return 48 + Number(e.code.slice(5)); // weapons, even while Shift (run) is held
+		if (e.key.length === 1) {
+			const c = e.key.toLowerCase().charCodeAt(0);
+			if (c >= 32 && c < 127) return c;
+		}
+		return 0;
+	}
+	function onKey(type, e) {
+		if (e.ctrlKey && e.key !== "Control" && /^[a-z]$/i.test(e.key)) return; // leave browser shortcuts alone
+		const k = doomKey(e);
+		if (!k) return;
+		e.preventDefault();
+		doom.add_browser_event(type, k);
+	}
+	window.addEventListener("keydown", (e) => onKey(0, e));
+	window.addEventListener("keyup", (e) => onKey(1, e));
+
+	// On-screen buttons (phones and tablets)
+	document.querySelectorAll(".pad button").forEach((b) => {
+		const k = Number(b.dataset.key);
+		const press = (e) => { e.preventDefault(); b.classList.add("down"); doom.add_browser_event(0, k); };
+		const release = (e) => { e.preventDefault(); if (!b.classList.contains("down")) return; b.classList.remove("down"); doom.add_browser_event(1, k); };
+		b.addEventListener("pointerdown", press);
+		b.addEventListener("pointerup", release);
+		b.addEventListener("pointercancel", release);
+		b.addEventListener("pointerleave", release);
+	});
+
+	canvas.focus();
+	document.addEventListener("pointerdown", () => canvas.focus());
+	doom.main();
+	(function step() {
+		doom.doom_loop_step();
+		requestAnimationFrame(step);
+	})();
+})();
+</script>
+</body>
+</html>

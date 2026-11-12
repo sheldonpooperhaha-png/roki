@@ -541,25 +541,37 @@
 		return li;
 	}
 
+	// The Games page has two parts: games saved in ROKI (public/games) and "Play online" (catalog.js),
+	// both filtered by the search box and sorted by the menu next to it.
 	const gamesSearch = $("games-search");
 	const gamesSort = $("games-sort");
 	const gamesNoMatch = $("games-nomatch");
+	const localTitle = $("local-games-title");
+	const onlineTitle = $("online-games-title");
+	const onlineGrid = $("online-games");
+	const onlineGames = (catalog.games || []).map((app) => ({ app, el: appTile(app) }));
 	let allGames = [];
 	function showGames() {
 		const term = gamesSearch.value.trim().toLowerCase();
+		const dir = gamesSort.value === "za" ? -1 : 1;
 		const list = allGames
 			.filter((g) => !term || g.name.toLowerCase().includes(term))
-			.sort((a, b) => a.name.localeCompare(b.name) * (gamesSort.value === "za" ? -1 : 1));
+			.sort((a, b) => a.name.localeCompare(b.name) * dir);
 		gameGrid.replaceChildren(...list.map(gameCard));
-		gameGrid.hidden = list.length === 0;
-		gamesEmpty.hidden = allGames.length > 0;
-		gamesNoMatch.hidden = !(allGames.length > 0 && list.length === 0);
+		gameGrid.hidden = localTitle.hidden = list.length === 0;
+		const online = onlineGames
+			.filter((x) => !term || x.app.name.toLowerCase().includes(term))
+			.sort((a, b) => a.app.name.localeCompare(b.app.name) * dir);
+		onlineGrid.replaceChildren(...online.map((x) => x.el));
+		onlineGrid.hidden = onlineTitle.hidden = online.length === 0;
+		gamesEmpty.hidden = allGames.length > 0 || Boolean(term);
+		gamesNoMatch.hidden = !(term && list.length === 0 && online.length === 0);
 	}
 	function renderGames(games) {
 		gamesStatus.hidden = true;
 		allGames = games;
-		const n = games.length;
-		gamesSearch.placeholder = n ? `Search through ${n} game${n === 1 ? "" : "s"}` : "Search games";
+		const n = games.length + onlineGames.length;
+		gamesSearch.placeholder = `Search through ${n} game${n === 1 ? "" : "s"}`;
 		gamesSort.options[0].textContent = `A to Z (${n})`;
 		gamesSort.options[1].textContent = `Z to A (${n})`;
 		showGames();
@@ -581,6 +593,7 @@
 			} catch (e) {
 				gamesStatus.textContent = "Couldn't load your games. Reload ROKI and try again.";
 				gamesStatus.hidden = false;
+				showGames(); // "Play online" still works
 			} finally {
 				gamesLoading = null;
 			}
