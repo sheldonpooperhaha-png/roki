@@ -409,7 +409,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 /* ---------- Smaller screens ---------- */
 @media (max-width: 1000px) {
 	.card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-	.feature-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+	.feature-grid { gap: 8px; }
+	.feature-grid .app-tile { gap: 8px; padding: 0 8px; }
+	.feature-grid .app-icon, .feature-grid .app-letters { width: 26px; height: 26px; }
+	.feature-grid .app-name { font-size: 15px; }
 }
 @media (max-width: 760px) {
 	.topnav { grid-template-columns: 1fr auto; padding: 8px 12px; }

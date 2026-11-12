@@ -55,7 +55,7 @@ window.ROKI_CATALOG = {
 		{ name: "YouTube Music", url: "https://music.youtube.com", domain: "music.youtube.com", bg: "#c4302b" },
 		{ name: "Twitch", url: "https://www.twitch.tv", domain: "twitch.tv", bg: "#9146ff" },
 		{ name: "Kick", url: "https://kick.com", domain: "kick.com", bg: "#0b0e0f" },
-		{ name: "Spotify", url: "https://open.spotify.com", domain: "spotify.com", bg: "#1ed760", dark: true },
+		{ name: "Spotify", url: "https://open.spotify.com", domain: "spotify.com", bg: "#121212" },
 		{ name: "SoundCloud", url: "https://soundcloud.com", domain: "soundcloud.com", bg: "#ff5500" },
 		{ name: "Pluto TV", url: "https://pluto.tv", domain: "pluto.tv", bg: "#000000" },
 		{ name: "Tubi", url: "https://tubitv.com", domain: "tubitv.com", bg: "#7408ff" },
