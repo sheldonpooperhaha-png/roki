@@ -308,9 +308,23 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 	list-style: none; margin: 8px 0 0; padding: 0; width: 100%;
 	display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px;
 }
-.app-grid .app-tile { aspect-ratio: 1; flex-direction: column; gap: 14px; padding: 16px 10px; border-radius: 14px; }
-.app-grid .app-icon, .app-grid .app-letters { width: 64px; height: 64px; border-radius: 16px; font-size: 22px; }
-.app-grid .app-name { max-width: 100%; font-size: 15px; }
+/* Apps, Media (and games with no cover): the site's icon fills the whole tile, its name shows on hover */
+.app-grid .app-tile, .art-grid .app-tile { display: block; aspect-ratio: 1; padding: 0; border-radius: 16px; }
+.app-grid .app-icon, .art-grid .app-icon {
+	position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0;
+}
+.app-grid .app-tile .app-letters, .art-grid .app-tile .app-letters {
+	position: absolute; inset: 0; width: auto; height: auto; border-radius: 0; background: none; font-size: 44px;
+}
+.app-grid .app-name, .art-grid .app-name {
+	position: absolute; left: 0; right: 0; bottom: 0; max-width: none; padding: 28px 10px 9px;
+	background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, .8));
+	color: #ffffff; font-size: 14px; font-weight: 700; text-align: left;
+	opacity: 0; transform: translateY(6px); transition: opacity .15s, transform .15s;
+}
+.app-grid .app-tile:hover .app-name, .app-grid .app-tile:focus-visible .app-name,
+.art-grid .app-tile:hover .app-name, .art-grid .app-tile:focus-visible .app-name { opacity: 1; transform: none; }
+@media (hover: none) { .app-grid .app-name, .art-grid .app-name { opacity: 1; transform: none; } }
 
 /* Games */
 .games-status { margin: 0; color: var(--danger); font-size: 14px; }
@@ -341,9 +355,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .art-tile:hover .art-name, .art-tile:focus-visible .art-name { opacity: 1; transform: none; }
 @media (hover: none) { .art-name { opacity: 1; transform: none; } }
 /* No picture: the site's icon on its color, like the Apps page */
-.art-grid .app-tile { aspect-ratio: 1; flex-direction: column; gap: 14px; padding: 16px 10px; border-radius: 16px; }
-.art-grid .app-icon, .art-grid .app-letters { width: 64px; height: 64px; border-radius: 16px; font-size: 22px; }
-.art-grid .app-name { max-width: 100%; font-size: 15px; }
 .games-empty {
 	max-width: 620px; padding: 20px 22px; box-sizing: border-box;
 	background: var(--card); border: 1px solid var(--line); border-radius: 14px;
@@ -501,9 +512,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 	.big-search input, .page-tools .big-search input { font-size: 16px; }
 	.page-tools .big-search { height: 58px; }
 	.app-grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; }
-	.app-grid .app-icon, .app-grid .app-letters { width: 52px; height: 52px; }
 	.art-grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; }
-	.art-grid .app-icon, .art-grid .app-letters { width: 52px; height: 52px; }
 	.field-pair { grid-template-columns: minmax(0, 1fr); }
 	.settings-title { font-size: 38px; }
 }
@@ -514,6 +523,6 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.app-tile, .art-tile, .art-name, .switch, .switch::after, .big-search, .addr, .btn, .topnav-action { transition: none; }
+	.app-tile, .art-tile, .art-name, .app-name, .switch, .switch::after, .big-search, .addr, .btn, .topnav-action { transition: none; }
 	.app-tile:hover, .art-tile:hover { transform: none; }
 }

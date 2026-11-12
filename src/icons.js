@@ -39,7 +39,7 @@ export function createIconCache({ ttl = 7 * 24 * HOUR, retry = HOUR / 6, max = 3
 	const entries = new Map(); // domain -> { icon: {body, type} | null, at, pending? }
 
 	async function load(domain) {
-		const url = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+		const url = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=256`;
 		const res = await fetchImpl(url, { signal: AbortSignal.timeout(8000), redirect: "follow" });
 		if (!res.ok) throw new Error("HTTP " + res.status);
 		const type = String(res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
