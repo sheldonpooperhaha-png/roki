@@ -52,6 +52,18 @@ If the link gets out to someone it shouldn't, make a new one (the old one stops 
 sudo bash /opt/roki/deploy/new-link.sh
 ```
 
+Or pick the words at the end of the link yourself (16-128 letters, numbers, - or _; it asks for them):
+
+```
+sudo bash /opt/roki/deploy/set-link.sh
+```
+
+### A pages.dev address
+
+ROKI also works at https://roki-hub.pages.dev. That's a Cloudflare Pages project whose only file,
+`deploy/cloudflare-pages/_worker.js`, passes every request to the server. To change it, upload the
+`deploy/cloudflare-pages` folder again in Cloudflare (Workers & Pages → roki-hub → Create deployment).
+
 To update the server later, connect with SSH and run:
 
 ```
