@@ -2,6 +2,8 @@ import { createServer } from "node:http";
 import { fileURLToPath } from "url";
 import { hostname } from "node:os";
 import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { server as wisp, logging } from "@mercuryworkshop/wisp-js/server";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
@@ -14,6 +16,7 @@ import { createAuth, isHttps, isKeyShaped, newKey, pathOf } from "./auth.js";
 import { listGames } from "./games.js";
 import { ICON_SITES, cleanDomain, createIconCache } from "./icons.js";
 import { WISP_OPTIONS } from "./wisp-config.js";
+import { patchScramjet } from "./scramjet-patch.js";
 
 const publicPath = fileURLToPath(new URL("../public/", import.meta.url));
 const gamesPath = fileURLToPath(new URL("../public/games/", import.meta.url));
@@ -86,6 +89,19 @@ fastify.addHook("onRequest", async (req, reply) => {
 fastify.register(fastifyStatic, {
 	root: publicPath,
 	decorateReply: true,
+});
+
+// Scramjet's main file with ROKI's WebSocket fix (see src/scramjet-patch.js); the rest of /scram/ is as installed
+const scramjetAll = (() => {
+	const { code, applied } = patchScramjet(readFileSync(join(scramjetPath, "scramjet.all.js"), "utf8"));
+	if (!applied) console.warn("Scramjet WebSocket fix not applied (different Scramjet version?), serving it unchanged");
+	const body = Buffer.from(code);
+	return { body, etag: '"' + createHash("sha1").update(body).digest("base64url") + '"' };
+})();
+fastify.get("/scram/scramjet.all.js", (req, reply) => {
+	reply.header("Cache-Control", "no-cache").header("ETag", scramjetAll.etag);
+	if (req.headers["if-none-match"] === scramjetAll.etag) return reply.code(304).send();
+	return reply.type("application/javascript; charset=utf-8").send(scramjetAll.body);
 });
 
 fastify.register(fastifyStatic, {
