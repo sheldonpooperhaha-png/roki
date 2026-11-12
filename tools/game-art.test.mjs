@@ -55,7 +55,8 @@ test("knows private and local addresses", () => {
 
 test("reads the Play online games out of public/catalog.js", () => {
 	const games = loadCatalogGames(readFileSync(new URL("../public/catalog.js", import.meta.url), "utf8"));
-	assert.ok(games.length > 50, `only ${games.length} games`);
+	assert.ok(games.length > 30, `only ${games.length} games`);
+	assert.deepEqual(Array.from(games.filter((g) => /poki\.com/i.test(g.url)), (g) => g.name), [], "Poki games don't play outside poki.com");
 	assert.ok(games.every((g) => /^https:\/\//.test(g.url) && typeof g.name === "string"));
 	assert.equal(new Set(games.map((g) => g.url)).size, games.length, "a game is listed twice");
 	assert.equal(new Set(games.map((g) => g.name.toLowerCase())).size, games.length, "two games share a name");

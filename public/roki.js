@@ -295,7 +295,7 @@
 		f.addEventListener("urlchange", (e) => {
 			if (tab.frame !== f) return;
 			tab.url = realUrl(e.url);
-			if (tab === active && document.activeElement !== addr) addr.value = tab.url;
+			if (tab === active && document.activeElement !== addr) addr.value = addrText(tab);
 			readMeta(tab);
 		});
 		f.frame.addEventListener("load", () => { if (tab.frame === f) readMeta(tab); });
@@ -340,15 +340,12 @@
 		else renderTab(tab);
 	}
 
-	async function navigate(tab, input) {
-		const text = String(input || "").trim();
-		if (!text) return;
-		let url = search(text, engines[engine]);
-		// search.js adds http:// to bare domains; prefer https
-		if (!/^[a-z][a-z0-9+.-]*:/i.test(text) && url.startsWith("http://")) url = "https://" + url.slice(7);
+	// Starts the proxy if it isn't yet; on failure goes home and says why
+	async function startProxyFor(tab) {
 		showError("");
 		try {
 			await ensureProxy();
+			return tabs.includes(tab);
 		} catch (err) {
 			let msg = "Couldn't start the proxy. " + (err && err.message ? err.message : String(err));
 			if (location.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(location.hostname)) {
@@ -356,9 +353,35 @@
 			}
 			if (tab === active && tab.view !== "home") goHome(tab);
 			showError(msg);
-			return;
+			return false;
 		}
-		if (!tabs.includes(tab)) return;
+	}
+
+	// "Play online" games open in ROKI's game screen, like the games saved in ROKI: the tab shows the
+	// game's name, the address bar shows games/<name> and full screen works. The game itself still comes
+	// from its own site, through the proxy.
+	const gameId = (name) => String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "game";
+	async function openOnlineGame(tab, app) {
+		if (!(await startProxyFor(tab))) return;
+		if (tab.frame && tab.frame.kind !== "proxy") dropFrame(tab);
+		if (!tab.frame) tab.frame = makeProxyFrame(tab);
+		tab.view = "game";
+		tab.game = { id: gameId(app.name), name: app.name, url: app.url, online: true };
+		tab.url = app.url;
+		tab.title = app.name;
+		tab.icon = "/site-icon?d=" + encodeURIComponent(app.domain) + "&v=3";
+		tab.frame.go(app.url);
+		if (tab === active) activate(tab);
+		else renderTab(tab);
+	}
+
+	async function navigate(tab, input) {
+		const text = String(input || "").trim();
+		if (!text) return;
+		let url = search(text, engines[engine]);
+		// search.js adds http:// to bare domains; prefer https
+		if (!/^[a-z][a-z0-9+.-]*:/i.test(text) && url.startsWith("http://")) url = "https://" + url.slice(7);
+		if (!(await startProxyFor(tab))) return;
 		if (tab.frame && tab.frame.kind !== "proxy") dropFrame(tab);
 		if (!tab.frame) tab.frame = makeProxyFrame(tab);
 		tab.view = "web";
@@ -378,7 +401,8 @@
 			const doc = tab.frame.frame.contentDocument;
 			if (doc) {
 				const title = (doc.title || "").trim();
-				if (title && title !== tab.title) { tab.title = title; changed = true; }
+				// An online game keeps its own name in the tab, like the games saved in ROKI
+				if (title && title !== tab.title && !(tab.game && tab.game.online)) { tab.title = title; changed = true; }
 				if (tab.view === "web") {
 					const link = doc.querySelector('link[rel~="icon"]');
 					const icon = link && link.getAttribute("href") ? proxiedAsset(link.href) : proxiedAsset(new URL("/favicon.ico", tab.url).href);
@@ -521,8 +545,14 @@
 	function onlineGameTile(app) {
 		const li = document.createElement("li");
 		const btn = artButton(app.name, "/game-art?u=" + encodeURIComponent(app.url), (b) => fillAppTile(b, app));
-		btn.addEventListener("click", () => navigate(active, app.url));
-		btn.addEventListener("auxclick", (e) => { if (e.button === 1) { e.preventDefault(); newTab(app.url); } });
+		btn.addEventListener("click", () => openOnlineGame(active, app));
+		btn.addEventListener("auxclick", (e) => {
+			if (e.button !== 1) return;
+			e.preventDefault();
+			const t = makeTab();
+			activate(t);
+			openOnlineGame(t, app);
+		});
 		li.appendChild(btn);
 		return li;
 	}
