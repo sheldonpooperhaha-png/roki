@@ -64,6 +64,13 @@ ROKI also works at https://roki-hub.pages.dev. That's a Cloudflare Pages project
 `deploy/cloudflare-pages/_worker.js`, passes every request to the server. To change it, upload the
 `deploy/cloudflare-pages` folder again in Cloudflare (Workers & Pages → roki-hub → Create deployment).
 
+### A cloudfront.net address
+
+ROKI also works at https://d3b3wz3481cm76.cloudfront.net, an AWS CloudFront distribution ("roki",
+E3IVT1AHAOEAE7) in front of the server: origin `18-217-91-210.nip.io` over HTTPS only, cache policy
+CachingDisabled, origin request policy AllViewerExceptHostHeader, all HTTP methods, no WAF.
+It's free within CloudFront's always-free allowance (1 TB a month).
+
 To update the server later, connect with SSH and run:
 
 ```
