@@ -438,9 +438,17 @@
 		const li = document.createElement("li");
 		const btn = document.createElement("button");
 		btn.type = "button";
+		btn.title = app.name;
+		fillAppTile(btn, app);
+		btn.addEventListener("click", () => navigate(active, app.url));
+		btn.addEventListener("auxclick", (e) => { if (e.button === 1) { e.preventDefault(); newTab(app.url); } });
+		li.appendChild(btn);
+		return li;
+	}
+	// The site's icon on its color, with its name. Game tiles fall back to this when there's no picture.
+	function fillAppTile(btn, app) {
 		btn.className = "app-tile" + (app.dark ? " dark-text" : "");
 		btn.style.setProperty("--tile-bg", app.bg || "");
-		btn.title = app.name;
 		const img = new Image();
 		img.className = "app-icon";
 		img.alt = "";
@@ -457,11 +465,65 @@
 		const name = document.createElement("span");
 		name.className = "app-name";
 		name.textContent = app.name;
-		btn.append(img, name);
+		btn.replaceChildren(img, name);
+	}
+	// Initials on a plain tile, with the name (a ROKI game with no cover picture)
+	function fillLetterTile(btn, label) {
+		btn.className = "app-tile";
+		const letters = document.createElement("span");
+		letters.className = "app-letters";
+		letters.setAttribute("aria-hidden", "true");
+		letters.textContent = initials(label);
+		const name = document.createElement("span");
+		name.className = "app-name";
+		name.textContent = label;
+		btn.replaceChildren(letters, name);
+	}
+
+	// Game tiles: the game's picture fills the tile and its name shows on hover.
+	// onFail(btn) turns the tile into something else if the picture can't load.
+	function artButton(label, src, onFail) {
+		const btn = document.createElement("button");
+		btn.type = "button";
+		btn.className = "art-tile";
+		btn.title = label;
+		const blur = document.createElement("span");
+		blur.className = "art-blur";
+		blur.setAttribute("aria-hidden", "true");
+		const img = new Image();
+		img.className = "art-img";
+		img.alt = "";
+		img.decoding = "async";
+		img.loading = "lazy";
+		img.onload = () => {
+			// Wide pictures (most link previews) fit inside the square, on a blurred copy of themselves
+			if (img.naturalWidth > img.naturalHeight * 1.2) {
+				btn.classList.add("wide");
+				blur.style.backgroundImage = `url("${img.src}")`;
+			}
+		};
+		img.onerror = () => onFail(btn);
+		img.src = src;
+		const name = document.createElement("span");
+		name.className = "art-name";
+		name.textContent = label;
+		btn.append(blur, img, name);
+		return btn;
+	}
+	function onlineGameTile(app) {
+		const li = document.createElement("li");
+		const btn = artButton(app.name, "/game-art?u=" + encodeURIComponent(app.url), (b) => fillAppTile(b, app));
 		btn.addEventListener("click", () => navigate(active, app.url));
 		btn.addEventListener("auxclick", (e) => { if (e.button === 1) { e.preventDefault(); newTab(app.url); } });
 		li.appendChild(btn);
 		return li;
+	}
+	function domainOf(url) {
+		try {
+			return new URL(url).hostname.replace(/^www\./, "");
+		} catch (e) {
+			return "";
+		}
 	}
 	const allApps = [...catalog.apps, ...catalog.media];
 	$("feature-grid").replaceChildren(
@@ -510,25 +572,15 @@
 
 	function gameCard(game) {
 		const li = document.createElement("li");
-		const btn = document.createElement("button");
-		btn.type = "button";
-		btn.className = "game-card";
-		const cover = document.createElement("span");
-		cover.className = "game-cover";
-		cover.setAttribute("aria-hidden", "true");
+		let btn;
 		if (game.cover) {
-			const img = new Image();
-			img.alt = "";
-			img.onerror = () => { img.remove(); cover.textContent = initials(game.name); };
-			img.src = game.cover;
-			cover.appendChild(img);
+			btn = artButton(game.name, game.cover, (b) => fillLetterTile(b, game.name));
 		} else {
-			cover.textContent = initials(game.name);
+			btn = document.createElement("button");
+			btn.type = "button";
+			btn.title = game.name;
+			fillLetterTile(btn, game.name);
 		}
-		const name = document.createElement("span");
-		name.className = "game-name";
-		name.textContent = game.name;
-		btn.append(cover, name);
 		btn.addEventListener("click", () => openGame(active, game));
 		btn.addEventListener("auxclick", (e) => {
 			if (e.button !== 1) return;
@@ -549,7 +601,9 @@
 	const localTitle = $("local-games-title");
 	const onlineTitle = $("online-games-title");
 	const onlineGrid = $("online-games");
-	const onlineGames = (catalog.games || []).map((app) => ({ app, el: appTile(app) }));
+	const onlineGames = (catalog.games || [])
+		.map((g) => ({ ...g, domain: g.domain || domainOf(g.url) }))
+		.map((app) => ({ app, el: onlineGameTile(app) }));
 	let allGames = [];
 	function showGames() {
 		const term = gamesSearch.value.trim().toLowerCase();

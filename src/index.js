@@ -17,6 +17,7 @@ import { listGames } from "./games.js";
 import { ICON_SITES, cleanDomain, createIconCache } from "./icons.js";
 import { WISP_OPTIONS } from "./wisp-config.js";
 import { patchScramjet } from "./scramjet-patch.js";
+import { createArtCache, loadCatalogGames } from "./game-art.js";
 
 const publicPath = fileURLToPath(new URL("../public/", import.meta.url));
 const gamesPath = fileURLToPath(new URL("../public/games/", import.meta.url));
@@ -176,6 +177,32 @@ fastify.get("/site-icon", async (req, reply) => {
 	const domain = cleanDomain(req.query && req.query.d);
 	return sendIcon(reply, domain && (await getIcon(domain)));
 });
+
+// /game-art?u=<game url>: a "Play online" game's cover picture (see src/game-art.js). Only games in
+// public/catalog.js; open like /icons/ since it can't fetch anything else.
+const catalogGames = (() => {
+	try {
+		return loadCatalogGames(readFileSync(join(publicPath, "catalog.js"), "utf8"));
+	} catch (e) {
+		console.warn("Couldn't read the games in public/catalog.js:", e.message);
+		return [];
+	}
+})();
+const gameByUrl = new Map(catalogGames.map((g) => [g.url, g]));
+const getArt = createArtCache();
+fastify.get("/game-art", async (req, reply) => {
+	const game = gameByUrl.get(String((req.query && req.query.u) || ""));
+	const art = game && (await getArt(game));
+	if (!art) return reply.code(404).header("Cache-Control", "no-store").type("text/plain").send("No picture");
+	reply.header("Cache-Control", "public, max-age=86400");
+	reply.header("Cross-Origin-Resource-Policy", "same-origin");
+	reply.header("X-Content-Type-Options", "nosniff");
+	return reply.type(art.type).send(art.body);
+});
+// Fetch every cover once in the background after starting, so the Games page is quick the first time
+setTimeout(() => {
+	for (const g of catalogGames) getArt(g);
+}, 15000).unref();
 
 // The Games page asks for this list (see src/games.js). It's locked like everything else.
 fastify.get("/games/list.json", async (req, reply) => {
