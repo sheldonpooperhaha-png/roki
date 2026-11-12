@@ -67,7 +67,7 @@ git config --system --get-all safe.directory | grep -qxF "$APP_DIR" || git confi
 set +x # keep the key out of the setup log
 install -d -m 700 /etc/roki
 key="$(sed -n 's/^ROKI_KEY=//p' /etc/roki/env 2>/dev/null || true)"
-if ! [[ $key =~ ^[A-Za-z0-9_-]{16,128}$ ]]; then
+if ! [[ $key =~ ^[A-Za-z0-9_-]{4,128}$ ]]; then
 	key="$(head -c 18 /dev/urandom | base64 | tr '+/' '-_')"
 fi
 {

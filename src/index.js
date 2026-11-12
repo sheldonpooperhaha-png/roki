@@ -29,7 +29,7 @@ const keyFile = new URL("../roki-key.txt", import.meta.url);
 function loadKey() {
 	const fromEnv = (process.env.ROKI_KEY || "").trim();
 	if (fromEnv) {
-		if (!isKeyShaped(fromEnv)) throw new Error("ROKI_KEY must be 16-128 letters, numbers, - or _");
+		if (!isKeyShaped(fromEnv)) throw new Error("ROKI_KEY must be 4-128 letters, numbers, - or _");
 		return fromEnv;
 	}
 	try {

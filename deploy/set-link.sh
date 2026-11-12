@@ -12,15 +12,15 @@ fi
 
 echo
 echo "Type the words for the end of your invite link (after /join/)."
-echo "16 to 128 characters: letters, numbers, - and _ only, no spaces. Capitals count."
+echo "4 to 128 characters: letters, numbers, - and _ only, no spaces. Capitals count."
 echo "Anyone who has these words can get into ROKI, so don't use something easy to guess."
 echo
 while :; do
 	read -r -p "New link words: " key
-	if [[ $key =~ ^[A-Za-z0-9_-]{16,128}$ ]]; then
+	if [[ $key =~ ^[A-Za-z0-9_-]{4,128}$ ]]; then
 		break
 	fi
-	echo "That doesn't fit: use 16 to 128 letters, numbers, - or _ (no spaces). You typed ${#key} characters."
+	echo "That doesn't fit: use 4 to 128 letters, numbers, - or _ (no spaces). You typed ${#key} characters."
 done
 
 read -r -p "Your link will end in /join/$key  Use it? (y/n) " ok

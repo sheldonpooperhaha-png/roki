@@ -23,7 +23,7 @@ pnpm install
 npm start
 ```
 
-Then open the invite link ROKI prints (`http://localhost:8080/join/...`). The secret key is made on the first run and saved in `roki-key.txt`, which is never committed. You can set your own with `ROKI_KEY` (16-128 letters, numbers, `-` or `_`).
+Then open the invite link ROKI prints (`http://localhost:8080/join/...`). The secret key is made on the first run and saved in `roki-key.txt`, which is never committed. You can set your own with `ROKI_KEY` (4-128 letters, numbers, `-` or `_`).
 
 On Windows you can double-click `Open ROKI.cmd` instead, which opens the invite link for you, and `Stop ROKI.cmd` to turn it off.
 
@@ -52,7 +52,7 @@ If the link gets out to someone it shouldn't, make a new one (the old one stops 
 sudo bash /opt/roki/deploy/new-link.sh
 ```
 
-Or pick the words at the end of the link yourself (16-128 letters, numbers, - or _; it asks for them):
+Or pick the words at the end of the link yourself (4-128 letters, numbers, - or _; it asks for them). Short words are easier to guess; ROKI allows 10 wrong tries per 15 minutes from one place:
 
 ```
 sudo bash /opt/roki/deploy/set-link.sh

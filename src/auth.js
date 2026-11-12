@@ -20,7 +20,7 @@ const sha = (s) => createHash("sha256").update(String(s)).digest();
 const same = (a, b) => a.length === b.length && timingSafeEqual(a, b);
 
 export const newKey = () => randomBytes(18).toString("base64url");
-export const isKeyShaped = (s) => typeof s === "string" && /^[A-Za-z0-9_-]{16,128}$/.test(s);
+export const isKeyShaped = (s) => typeof s === "string" && /^[A-Za-z0-9_-]{4,128}$/.test(s);
 
 export function pathOf(url) {
 	try {
@@ -48,7 +48,7 @@ export function isHttps(req) {
 }
 
 export function createAuth(key) {
-	if (!isKeyShaped(key)) throw new Error("ROKI's secret key must be 16-128 letters, numbers, - or _");
+	if (!isKeyShaped(key)) throw new Error("ROKI's secret key must be 4-128 letters, numbers, - or _");
 
 	const keyHash = sha(key);
 	const token = createHmac("sha256", key).update("roki-session-v2").digest("base64url");
