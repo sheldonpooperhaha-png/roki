@@ -11,6 +11,7 @@
 #   - puts Caddy in front for HTTPS on https://<server-ip>.nip.io (free Let's Encrypt certificate)
 #   - checks the server's public address every 2 minutes and updates the HTTPS name if it changes
 #   - makes ROKI's secret invite link; see it with:  sudo cat /etc/roki/link
+#   - checks GitHub every 10 minutes and updates itself when there's a new version
 set -euxo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -121,11 +122,37 @@ OnUnitActiveSec=2min
 WantedBy=timers.target
 EOF
 
+# --- Automatic updates from GitHub ---
+install -m 755 "$APP_DIR/deploy/auto-update.sh" /usr/local/sbin/roki-auto-update
+cat > /etc/systemd/system/roki-auto-update.service <<EOF
+[Unit]
+Description=Update ROKI from GitHub if there's a new version
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=ROKI_DIR=$APP_DIR
+ExecStart=/usr/local/sbin/roki-auto-update
+EOF
+cat > /etc/systemd/system/roki-auto-update.timer <<'EOF'
+[Unit]
+Description=Check GitHub for a new ROKI every 10 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target
+EOF
+
 systemctl daemon-reload
 systemctl enable --now roki.service
 systemctl restart roki.service
 systemctl enable --now caddy.service
 systemctl enable --now roki-address.timer
+systemctl enable --now roki-auto-update.timer
 /usr/local/sbin/roki-update-address
 
 set +x
