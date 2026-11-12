@@ -49,60 +49,13 @@ window.ROKI_CATALOG = {
 		{ name: "Weather", url: "https://weather.com", domain: "weather.com", bg: "#005986" },
 	],
 
-	// Games page, "Play online": free games on their own official sites (or Coolmath, where their makers
-	// publish them), opened in ROKI's game screen through the proxy. No Poki games: Poki only lets its
-	// games run on poki.com. Each tile shows the picture the game's page shares
-	// for link previews, fetched by ROKI's server (src/game-art.js). To use a different picture, add
-	// img: "https://..." to a game. domain and bg are only for when there's no picture: the site's icon
-	// on that color (domain defaults to the site in url).
-	games: [
-		{ name: "Krunker", url: "https://krunker.io", domain: "krunker.io", bg: "#1b1b1f" },
-		{ name: "Shell Shockers", url: "https://shellshock.io", domain: "shellshock.io", bg: "#f2c94c", dark: true },
-		{ name: "Smash Karts", url: "https://smashkarts.io", domain: "smashkarts.io", bg: "#2b65ff" },
-		{ name: "1v1.LOL", url: "https://1v1.lol", domain: "1v1.lol", bg: "#1565c0" },
-		{ name: "Bloxd.io", url: "https://bloxd.io", domain: "bloxd.io", bg: "#3d8b37" },
-		{ name: "Minecraft Classic", url: "https://classic.minecraft.net", domain: "classic.minecraft.net", bg: "#5d8c3a" },
-		{ name: "slither.io", url: "https://slither.io", domain: "slither.io", bg: "#16212b" },
-		{ name: "agar.io", url: "https://agar.io", domain: "agar.io", bg: "#3ba7ff" },
-		{ name: "diep.io", url: "https://diep.io", domain: "diep.io", bg: "#00b2e1" },
-		{ name: "Zombs Royale", url: "https://zombsroyale.io", domain: "zombsroyale.io", bg: "#2c3e50" },
-		{ name: "Venge.io", url: "https://venge.io", domain: "venge.io", bg: "#a4161a" },
-		{ name: "Run 3", url: "https://www.coolmathgames.com/0-run-3", domain: "coolmathgames.com", bg: "#263238" },
-		{ name: "Wordle", url: "https://www.nytimes.com/games/wordle/index.html", domain: "nytimes.com", bg: "#6aaa64" },
-
-		// .io games on their own sites
-		{ name: "skribbl.io", url: "https://skribbl.io" },
-		{ name: "bonk.io", url: "https://bonk.io" },
-		{ name: "Wormate.io", url: "https://wormate.io" },
-		{ name: "Narrow One", url: "https://narrow.one" },
-		{ name: "TETR.IO", url: "https://tetr.io" },
-		{ name: "MooMoo.io", url: "https://moomoo.io" },
-		{ name: "Starve.io", url: "https://starve.io" },
-		{ name: "Taming.io", url: "https://taming.io" },
-		{ name: "Deeeep.io", url: "https://deeeep.io" },
-		{ name: "florr.io", url: "https://florr.io" },
-		{ name: "arras.io", url: "https://arras.io" },
-		{ name: "EV.IO", url: "https://ev.io" },
-		{ name: "Voxiom.io", url: "https://voxiom.io" },
-		{ name: "Kour.io", url: "https://kour.io" },
-		{ name: "Hordes.io", url: "https://hordes.io" },
-		{ name: "Little Big Snake", url: "https://littlebigsnake.com" },
-		{ name: "Gartic Phone", url: "https://garticphone.com" },
-		{ name: "Zombs.io", url: "https://zombs.io" },
-		{ name: "survev.io", url: "https://survev.io" },
-
-
-		// On Coolmath Games
-		{ name: "Drift Boss", url: "https://www.coolmathgames.com/0-drift-boss" },
-		{ name: "Fireboy and Watergirl: Forest Temple", url: "https://www.coolmathgames.com/0-fireboy-and-water-girl-in-the-forest-temple" },
-		{ name: "Tiny Fishing", url: "https://www.coolmathgames.com/0-tiny-fishing" },
-		{ name: "Papa's Pizzeria", url: "https://www.coolmathgames.com/0-papas-pizzeria" },
-		{ name: "Suika Watermelon Game", url: "https://www.coolmathgames.com/0-suika-watermelon-game" },
-		{ name: "Eggy Car", url: "https://www.coolmathgames.com/0-eggy-car" },
-		{ name: "Cookie Clicker", url: "https://www.coolmathgames.com/0-cookie-clicker" },
-		{ name: "8 Ball Pool", url: "https://www.coolmathgames.com/0-8-ball-pool" },
-		{ name: "Snake", url: "https://www.coolmathgames.com/0-snake" },
-	],
+	// Games page, "Play online": games on other websites, opened in ROKI's game screen through the
+	// proxy. Empty on purpose: ROKI only lists the games saved in ROKI itself (public/games). The page
+	// hides "Play online" while this list is empty. To add one back: { name: "...", url: "https://..." };
+	// its tile shows the picture the game's page shares for link previews, fetched by ROKI's server
+	// (src/game-art.js), or add img: "https://..." to pick the picture. domain and bg are only for when
+	// there's no picture: the site's icon on that color (domain defaults to the site in url).
+	games: [],
 
 	media: [
 		{ name: "YouTube", url: "https://www.youtube.com", domain: "youtube.com", bg: "#ffffff", dark: true },

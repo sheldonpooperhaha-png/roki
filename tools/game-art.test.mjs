@@ -55,11 +55,22 @@ test("knows private and local addresses", () => {
 
 test("reads the Play online games out of public/catalog.js", () => {
 	const games = loadCatalogGames(readFileSync(new URL("../public/catalog.js", import.meta.url), "utf8"));
-	assert.ok(games.length > 30, `only ${games.length} games`);
+	assert.ok(Array.isArray(games));
 	assert.deepEqual(Array.from(games.filter((g) => /poki\.com/i.test(g.url)), (g) => g.name), [], "Poki games don't play outside poki.com");
 	assert.ok(games.every((g) => /^https:\/\//.test(g.url) && typeof g.name === "string"));
 	assert.equal(new Set(games.map((g) => g.url)).size, games.length, "a game is listed twice");
 	assert.equal(new Set(games.map((g) => g.name.toLowerCase())).size, games.length, "two games share a name");
+});
+
+test("reads a catalog's games and skips broken entries", () => {
+	const source = `window.ROKI_CATALOG = { games: [
+		{ name: "A", url: "https://a.example" },
+		{ name: "No link" },
+		{ url: "https://no-name.example" },
+		{ name: "Bad link", url: "javascript:alert(1)" },
+	] };`;
+	assert.deepEqual(Array.from(loadCatalogGames(source), (g) => g.name), ["A"]);
+	assert.deepEqual(Array.from(loadCatalogGames("window.ROKI_CATALOG = {};")), []);
 });
 
 /* ---------- fetching and caching ---------- */
