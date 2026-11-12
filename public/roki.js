@@ -461,7 +461,7 @@
 			letters.textContent = initials(app.name);
 			img.replaceWith(letters);
 		};
-		img.src = "/site-icon?d=" + encodeURIComponent(app.domain);
+		img.src = "/site-icon?d=" + encodeURIComponent(app.domain) + "&v=2"; // v: new, sharper icons
 		const name = document.createElement("span");
 		name.className = "app-name";
 		name.textContent = app.name;
