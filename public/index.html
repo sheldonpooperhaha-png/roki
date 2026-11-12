@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-icons="server">
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -7,14 +7,17 @@
 	<link rel="icon" href="favicon.ico">
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Unbounded:wght@500&display=swap" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Unbounded:wght@500&display=swap" crossorigin="anonymous">
 	<link rel="stylesheet" href="roki.css">
+	<script>try{var t=JSON.parse(localStorage.getItem("roki:theme"));if(t&&t!=="legacy")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 
 	<script src="/scram/scramjet.all.js"></script>
 	<script src="/baremux/index.js"></script>
 	<script src="register-sw.js" defer></script>
 	<script src="search.js" defer></script>
+	<script src="catalog.js" defer></script>
 	<script src="roki.js" defer></script>
+	<script src="settings.js" defer></script>
 	<script src="panic.js" defer></script>
 </head>
 <body>
@@ -53,102 +56,209 @@
 
 		<div class="viewport" id="viewport">
 			<div class="home" id="home">
-				<main class="home-main" id="home-main">
-					<div class="brand">
-						<h1 class="wordmark">ROKI</h1>
-						<p class="clock" id="clock">&nbsp;</p>
+				<nav class="topnav" aria-label="ROKI">
+					<button class="topnav-brand" type="button" id="nav-home">ROKI</button>
+					<div class="topnav-links">
+						<button class="topnav-link" type="button" data-page="games" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="5"/><path d="M7 10v4M5 12h4"/><path d="M15.5 11h.01M18 13h.01"/></svg><span>Games</span></button>
+						<button class="topnav-link" type="button" data-page="apps" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg><span>Apps</span></button>
+						<button class="topnav-link" type="button" data-page="media" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M10 8.5v5l4-2.5z" fill="currentColor"/></svg><span>Media</span></button>
+						<button class="topnav-link" type="button" data-page="settings" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Settings</span></button>
 					</div>
+					<span class="topnav-clock" id="clock" aria-live="off"></span>
+				</nav>
 
-					<form class="search" id="home-form" role="search" autocomplete="off">
-						<label class="search-box" for="q">
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-							<input id="q" type="text" placeholder="Search or enter address" aria-label="Search or enter address" spellcheck="false">
+				<main class="page page-home" id="home-main">
+					<h1 class="hero-title">ROKI</h1>
+					<p class="hero-sub" id="hero-date">&nbsp;</p>
+					<form class="hero-search" id="home-form" role="search" autocomplete="off">
+						<label class="big-search" for="q">
+							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+							<input id="q" type="text" placeholder="Search the web or enter a link" aria-label="Search the web or enter a link" spellcheck="false">
 						</label>
 					</form>
-
 					<p class="error" id="error" role="alert" hidden></p>
-
-					<ul class="tiles" aria-label="Shortcuts">
-						<li><button class="tile" type="button" data-url="https://www.youtube.com" aria-label="YouTube"><span class="tile-icon" aria-hidden="true"><img class="tile-logo" src="/icons/youtube.png" alt="" width="30" height="30" decoding="async"><span class="tile-letters">Yt</span></span><span class="tile-name" aria-hidden="true">YouTube</span></button></li>
-						<li><button class="tile" type="button" data-url="https://www.tiktok.com" aria-label="TikTok"><span class="tile-icon" aria-hidden="true"><img class="tile-logo" src="/icons/tiktok.png" alt="" width="30" height="30" decoding="async"><span class="tile-letters">Tk</span></span><span class="tile-name" aria-hidden="true">TikTok</span></button></li>
-						<li><button class="tile" type="button" data-url="https://kick.com" aria-label="Kick"><span class="tile-icon" aria-hidden="true"><img class="tile-logo" src="/icons/kick.png" alt="" width="30" height="30" decoding="async"><span class="tile-letters">Ki</span></span><span class="tile-name" aria-hidden="true">Kick</span></button></li>
-						<li><button class="tile" type="button" data-url="https://www.twitch.tv" aria-label="Twitch"><span class="tile-icon" aria-hidden="true"><img class="tile-logo" src="/icons/twitch.png" alt="" width="30" height="30" decoding="async"><span class="tile-letters">Tw</span></span><span class="tile-name" aria-hidden="true">Twitch</span></button></li>
-						<li><button class="tile" type="button" data-url="https://www.snapchat.com" aria-label="Snapchat"><span class="tile-icon" aria-hidden="true"><img class="tile-logo" src="/icons/snapchat.png" alt="" width="30" height="30" decoding="async"><span class="tile-letters">Sc</span></span><span class="tile-name" aria-hidden="true">Snapchat</span></button></li>
-						<li><button class="tile" type="button" data-url="https://www.instagram.com" aria-label="Instagram"><span class="tile-icon" aria-hidden="true"><img class="tile-logo" src="/icons/instagram.png" alt="" width="30" height="30" decoding="async"><span class="tile-letters">Ig</span></span><span class="tile-name" aria-hidden="true">Instagram</span></button></li>
-						<li><button class="tile" type="button" data-url="https://discord.com/app" aria-label="Discord"><span class="tile-icon" aria-hidden="true"><img class="tile-logo" src="/icons/discord.png" alt="" width="30" height="30" decoding="async"><span class="tile-letters">Dc</span></span><span class="tile-name" aria-hidden="true">Discord</span></button></li>
-					</ul>
+					<ul class="feature-grid" id="feature-grid" aria-label="Apps"></ul>
 				</main>
 
-				<main class="games-main" id="games-main" hidden>
-					<div class="games-head">
-						<h1 class="games-title">Games</h1>
-						<p class="games-count" id="games-count"></p>
+				<main class="page" id="games-main" hidden>
+					<h1 class="page-title">Games</h1>
+					<div class="page-tools">
+						<label class="big-search" for="games-search">
+							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+							<input id="games-search" type="search" placeholder="Search games" aria-label="Search games" spellcheck="false" autocomplete="off">
+						</label>
+						<select class="field-select page-sort" id="games-sort" aria-label="Sort games">
+							<option value="az">A to Z</option>
+							<option value="za">Z to A</option>
+						</select>
 					</div>
 					<p class="games-status" id="games-status" role="alert" hidden></p>
 					<ul class="game-grid" id="game-grid" aria-label="Games"></ul>
+					<p class="page-empty" id="games-nomatch" hidden>No games match that.</p>
 					<div class="games-empty" id="games-empty" hidden>
 						<p class="games-empty-title">No games yet</p>
 						<p>Put a game in the <code>public/games</code> folder inside your ROKI folder (Downloads\ROKI), then open Games again. A game can be a folder with an <code>index.html</code> inside, or a single <code>.html</code> file.</p>
 					</div>
 				</main>
 
-				<footer class="bar">
-					<span class="bar-note">ROKI · 2026</span>
-					<div class="bar-actions">
-						<button class="bar-btn" type="button" id="games-btn" aria-pressed="false">
-							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="5"/><path d="M7 10v4M5 12h4"/><path d="M15.5 11h.01M18 13h.01"/></svg>
-							<span>Games</span>
-						</button>
-						<button class="bar-btn" type="button" id="effects-btn" aria-expanded="false" aria-controls="effects-panel">
-							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg>
-							<span>Effects</span>
-						</button>
-						<button class="bar-btn" type="button" id="settings-btn" aria-expanded="false" aria-controls="settings-panel">
-							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
-							<span>Settings</span>
-						</button>
+				<main class="page" id="apps-main" hidden>
+					<h1 class="page-title">Apps</h1>
+					<div class="page-tools">
+						<label class="big-search" for="apps-search">
+							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+							<input id="apps-search" type="search" placeholder="Search apps" aria-label="Search apps" spellcheck="false" autocomplete="off">
+						</label>
 					</div>
-				</footer>
+					<ul class="app-grid" id="apps-grid" aria-label="Apps"></ul>
+					<p class="page-empty" id="apps-nomatch" hidden>No apps match that.</p>
+				</main>
+
+				<main class="page" id="media-main" hidden>
+					<h1 class="page-title">Media</h1>
+					<div class="page-tools">
+						<label class="big-search" for="media-search">
+							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+							<input id="media-search" type="search" placeholder="Search video and music" aria-label="Search video and music" spellcheck="false" autocomplete="off">
+						</label>
+					</div>
+					<ul class="app-grid" id="media-grid" aria-label="Video and music"></ul>
+					<p class="page-empty" id="media-nomatch" hidden>Nothing matches that.</p>
+				</main>
+
+				<main class="page page-settings" id="settings-main" hidden>
+					<header class="settings-header">
+						<p class="eyebrow">Site controls</p>
+						<h1 class="settings-title">Settings</h1>
+						<p class="settings-lead">Change how ROKI looks, hides and behaves. Saved in this browser.</p>
+					</header>
+					<div class="card-grid">
+						<section class="card" aria-labelledby="c-theme">
+							<h2 id="c-theme">Theme</h2>
+							<p class="card-desc">Choose the site colors.</p>
+							<label class="field-label" for="theme">Theme</label>
+							<select class="field-select" id="theme"></select>
+							<label class="toggle-row" for="fx-stars"><span>Stars</span><input class="switch" type="checkbox" id="fx-stars"></label>
+							<label class="toggle-row" for="fx-twinkle"><span>Twinkle</span><input class="switch" type="checkbox" id="fx-twinkle" checked></label>
+							<label class="toggle-row" for="fx-shooting"><span>Shooting stars</span><input class="switch" type="checkbox" id="fx-shooting" checked></label>
+						</section>
+
+						<section class="card card-wide" aria-labelledby="c-tab">
+							<h2 id="c-tab">Tab appearance</h2>
+							<p class="card-desc">Change this tab's name and icon so it looks like another site.</p>
+							<label class="field-label" for="tab-preset">Preset</label>
+							<select class="field-select" id="tab-preset"></select>
+							<div class="field-pair">
+								<div class="field-col">
+									<label class="field-label" for="tab-title">Custom title</label>
+									<input class="field-input" type="text" id="tab-title" maxlength="80" spellcheck="false" autocomplete="off" placeholder="Classes">
+								</div>
+								<div class="field-col">
+									<label class="field-label" for="tab-icon">Icon from site</label>
+									<input class="field-input" type="text" id="tab-icon" maxlength="120" spellcheck="false" autocomplete="off" placeholder="classroom.google.com">
+								</div>
+							</div>
+							<label class="field-label" for="tab-when">Show it</label>
+							<select class="field-select" id="tab-when">
+								<option value="always">Always</option>
+								<option value="away">Only when I'm on another tab or window</option>
+							</select>
+							<div class="btn-row">
+								<button class="btn btn-primary" type="button" id="tab-apply">Apply</button>
+								<button class="btn" type="button" id="tab-reset">Reset tab</button>
+								<span class="card-status" id="tab-status" aria-live="polite"></span>
+							</div>
+						</section>
+
+						<section class="card" aria-labelledby="c-blank">
+							<h2 id="c-blank">About:blank</h2>
+							<p class="card-desc">Open ROKI in a hidden tab whose address bar only says about:blank.</p>
+							<label class="toggle-row" for="cloak-auto"><span>Open it every time</span><input class="switch" type="checkbox" id="cloak-auto"></label>
+							<button class="btn btn-primary btn-block" type="button" id="cloak-btn">Open now</button>
+							<p class="card-note" id="cloak-note" role="alert" hidden></p>
+						</section>
+
+						<section class="card" aria-labelledby="c-panic">
+							<h2 id="c-panic">Panic key</h2>
+							<p class="card-desc">Set a quick exit key and where it sends you.</p>
+							<label class="toggle-row" for="panic-on"><span>Enable panic key</span><input class="switch" type="checkbox" id="panic-on" checked></label>
+							<span class="field-label">Key</span>
+							<button class="key-field" type="button" id="panic-key" aria-pressed="false">`</button>
+							<label class="field-label" for="panic-url">Exit URL</label>
+							<input class="field-input" type="text" id="panic-url" value="https://www.google.com" spellcheck="false" autocomplete="off">
+							<p class="card-hint" id="panic-hint" aria-live="polite">Press the key anytime to leave ROKI fast. Pick one you won't type by accident.</p>
+						</section>
+
+						<section class="card" aria-labelledby="c-privacy">
+							<h2 id="c-privacy">Privacy and ads</h2>
+							<p class="card-desc">What ROKI blocks, wipes and asks.</p>
+							<label class="toggle-row" for="adblock"><span>Block ads and trackers</span><input class="switch" type="checkbox" id="adblock" checked></label>
+							<label class="toggle-row" for="prevent-close"><span>Ask before closing the tab</span><input class="switch" type="checkbox" id="prevent-close"></label>
+							<label class="toggle-row" for="auto-wipe"><span>Wipe site data between visits</span><input class="switch" type="checkbox" id="auto-wipe" checked></label>
+							<button class="btn btn-block" type="button" id="wipe-now">Wipe site data now</button>
+							<p class="card-hint">Ad block skips YouTube's own video ads. Wiping logs you out of sites you used through ROKI.</p>
+						</section>
+
+						<section class="card" aria-labelledby="c-search">
+							<h2 id="c-search">Search</h2>
+							<p class="card-desc">Where searches from the search bars go.</p>
+							<label class="field-label" for="engine">Search engine</label>
+							<select class="field-select" id="engine">
+								<option value="duckduckgo">DuckDuckGo</option>
+								<option value="google">Google</option>
+								<option value="bing">Bing</option>
+							</select>
+						</section>
+
+						<section class="card" aria-labelledby="c-friends">
+							<h2 id="c-friends">Friends</h2>
+							<p class="card-desc">Get your friends into ROKI.</p>
+							<div class="btn-row">
+								<button class="btn btn-primary" type="button" id="invite-btn">Copy invite link</button>
+								<button class="btn" type="button" id="launcher-btn">Download launcher</button>
+							</div>
+							<p class="card-hint" id="invite-hint" aria-live="polite">Opening the invite link gets you into ROKI, no password. Anyone who has it can get in, so only send it to friends.</p>
+							<p class="card-note" id="launcher-note" role="alert" hidden></p>
+						</section>
+
+						<section class="card" aria-labelledby="c-data">
+							<h2 id="c-data">Save data</h2>
+							<p class="card-desc">Import or export your ROKI settings.</p>
+							<div class="btn-row">
+								<button class="btn btn-primary" type="button" id="import-btn">Import data</button>
+								<button class="btn" type="button" id="export-btn">Export data</button>
+							</div>
+							<input type="file" id="import-file" accept=".json,application/json" hidden>
+							<p class="card-hint" id="data-status" aria-live="polite">Moves your theme, tab cloak, panic key and other settings to another browser.</p>
+						</section>
+
+						<section class="card" aria-labelledby="c-info">
+							<h2 id="c-info">Site info</h2>
+							<p class="card-desc">Version and support details.</p>
+							<dl class="info-list">
+								<div><dt>Updated</dt><dd>November 11, 2026</dd></div>
+								<div><dt>Version</dt><dd>2.0.0</dd></div>
+								<div><dt>Source</dt><dd><a href="https://github.com/sheldonpooperhaha-png/roki" target="_blank" rel="noopener">GitHub (AGPL)</a></dd></div>
+								<div><dt>Account</dt><dd><a href="/logout" id="logout-link">Log out</a></dd></div>
+							</dl>
+						</section>
+					</div>
+				</main>
+
+				<div class="corner" aria-label="Quick actions">
+					<button class="corner-btn" type="button" id="corner-cloak" title="Open in about:blank" aria-label="Open in about:blank"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2.5 12S6 19 12 19a9.6 9.6 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button>
+					<button class="corner-btn" type="button" id="corner-panic" title="Panic: leave now" aria-label="Panic: leave now"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M12 8v4M12 16h.01"/></svg></button>
+					<a class="corner-btn" href="https://github.com/sheldonpooperhaha-png/roki" target="_blank" rel="noopener" title="Source code" aria-label="Source code"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></svg></a>
+				</div>
 			</div>
 		</div>
 	</div>
 
-	<section class="panel" id="effects-panel" aria-label="Effects" hidden>
-		<h2>Effects</h2>
-		<label class="row" for="fx-stars"><span>Stars</span><input class="switch" type="checkbox" id="fx-stars" checked></label>
-		<label class="row" for="fx-twinkle"><span>Twinkle</span><input class="switch" type="checkbox" id="fx-twinkle" checked></label>
-		<label class="row" for="fx-shooting"><span>Shooting stars</span><input class="switch" type="checkbox" id="fx-shooting" checked></label>
-	</section>
-
-	<section class="panel" id="settings-panel" aria-label="Settings" hidden>
-		<h2>Search engine</h2>
-		<label class="row" for="eng-google"><span>Google</span><input type="radio" name="engine" value="google" id="eng-google"></label>
-		<label class="row" for="eng-duckduckgo"><span>DuckDuckGo</span><input type="radio" name="engine" value="duckduckgo" id="eng-duckduckgo" checked></label>
-		<label class="row" for="eng-bing"><span>Bing</span><input type="radio" name="engine" value="bing" id="eng-bing"></label>
-		<h2 class="panel-gap">Panic key</h2>
-		<label class="row" for="panic-on"><span>Panic key on</span><input class="switch" type="checkbox" id="panic-on" checked></label>
-		<div class="row"><span>Key</span><button class="key-btn" type="button" id="panic-key" aria-pressed="false">`</button></div>
-		<label class="field" for="panic-url"><span>Sends you to</span><input type="text" id="panic-url" value="https://www.google.com" spellcheck="false" autocomplete="off"></label>
-		<p class="panel-hint" id="panic-hint" aria-live="polite">Press the key anytime to leave ROKI fast. Pick one you won't type by accident.</p>
-		<h2 class="panel-gap">Privacy</h2>
-		<label class="row" for="auto-wipe"><span>Wipe site data between visits</span><input class="switch" type="checkbox" id="auto-wipe" checked></label>
-		<button class="panel-btn" type="button" id="wipe-now">Wipe site data now</button>
-		<button class="panel-btn" type="button" id="cloak-btn">Hide link (open in about:blank)</button>
-		<p class="panel-note" id="cloak-note" role="alert" hidden></p>
-		<h2 class="panel-gap">Friends</h2>
-		<button class="panel-btn" type="button" id="invite-btn">Copy invite link</button>
-		<p class="panel-hint" id="invite-hint" aria-live="polite">Opening the invite link gets you into ROKI, no password. Anyone who has it can get in, so only send it to friends.</p>
-		<button class="panel-btn" type="button" id="launcher-btn">Download friend launcher</button>
-		<p class="panel-note" id="launcher-note" role="alert" hidden></p>
-		<a class="panel-link" href="/logout">Log out</a>
-		<a class="panel-link panel-source" href="https://github.com/sheldonpooperhaha-png/roki" target="_blank" rel="noopener">Source code (AGPL)</a>
-	</section>
 	<div class="cloak-gate" id="cloak-gate" hidden>
 		<button class="cloak-gate-btn" type="button" id="cloak-gate-btn">
 			<span class="wordmark">ROKI</span>
 			<span class="cloak-gate-hint">Tap anywhere to open</span>
 		</button>
-		<p class="panel-note cloak-gate-note" id="cloak-gate-note" role="alert" hidden></p>
+		<p class="card-note cloak-gate-note" id="cloak-gate-note" role="alert" hidden></p>
 	</div>
 </body>
 </html>

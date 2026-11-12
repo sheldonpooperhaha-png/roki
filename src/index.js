@@ -12,7 +12,7 @@ import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 
 import { createAuth, isHttps, isKeyShaped, newKey, pathOf } from "./auth.js";
 import { listGames } from "./games.js";
-import { createIconCache } from "./icons.js";
+import { ICON_SITES, cleanDomain, createIconCache } from "./icons.js";
 import { WISP_OPTIONS } from "./wisp-config.js";
 
 const publicPath = fileURLToPath(new URL("../public/", import.meta.url));
@@ -140,15 +140,25 @@ fastify.get("/logout", (req, reply) => {
 	return reply.redirect("/login");
 });
 
-// Shortcut logos on the start page (see src/icons.js): /icons/youtube.png and so on
+// Site icons (see src/icons.js)
+// /icons/<name>.png: shortcut tiles and tab cloak templates. Open to everyone, like the lock screen,
+// since they're only a fixed list of public site icons.
+// /site-icon?d=<domain>: the tab cloak's "Custom" icon. Locked like every ROKI page.
 const getIcon = createIconCache();
-fastify.get("/icons/:file", async (req, reply) => {
-	const m = /^([a-z]+)\.png$/.exec(req.params.file);
-	const icon = m && (await getIcon(m[1]));
-	if (!icon) return reply.code(404).header("Cache-Control", "no-store").type("text/plain").send("No logo");
+function sendIcon(reply, icon) {
+	if (!icon) return reply.code(404).header("Cache-Control", "no-store").type("text/plain").send("No icon");
 	reply.header("Cache-Control", "public, max-age=86400");
 	reply.header("Cross-Origin-Resource-Policy", "same-origin");
 	return reply.type(icon.type).send(icon.body);
+}
+fastify.get("/icons/:file", async (req, reply) => {
+	const m = /^([a-z]+)\.png$/.exec(req.params.file);
+	const domain = m && Object.hasOwn(ICON_SITES, m[1]) ? ICON_SITES[m[1]] : null;
+	return sendIcon(reply, domain && (await getIcon(domain)));
+});
+fastify.get("/site-icon", async (req, reply) => {
+	const domain = cleanDomain(req.query && req.query.d);
+	return sendIcon(reply, domain && (await getIcon(domain)));
 });
 
 // The Games page asks for this list (see src/games.js). It's locked like everything else.

@@ -115,6 +115,9 @@
 	const GLOBE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg>';
 	const SPARK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>';
 	const PAD = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="5"/><path d="M7 10v4M5 12h4"/><path d="M15.5 11h.01M18 13h.01"/></svg>';
+	const GRID = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>';
+	const SCREEN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
+	const SLIDERS = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>';
 	const CLOSE = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 	const PREFIX = "/scramjet/";
 
@@ -146,14 +149,15 @@
 	}
 
 	/* ---------- Tabs ---------- */
-	// Each tab shows one of: "home" (new tab page), "games" (games list),
+	// Each tab shows one of ROKI's own pages ("home", "games", "apps", "media", "settings"),
 	// "web" (a site through the proxy) or "game" (a game from public/games).
+	const PAGES = { home: "New Tab", games: "Games", apps: "Apps", media: "Media", settings: "Settings" };
+	const PAGE_ICONS = { home: SPARK, games: PAD, apps: GRID, media: SCREEN, settings: SLIDERS };
 	const tabsEl = $("tabs");
 	const viewport = $("viewport");
 	const home = $("home");
-	const homeMain = $("home-main");
-	const gamesMain = $("games-main");
-	const gamesBtn = $("games-btn");
+	const pageEls = { home: $("home-main"), games: $("games-main"), apps: $("apps-main"), media: $("media-main"), settings: $("settings-main") };
+	const navLinks = [...document.querySelectorAll(".topnav-link")];
 	const addr = $("addr");
 	const q = $("q");
 	const errorEl = $("error");
@@ -176,7 +180,7 @@
 		tab.titleEl.textContent = tab.title;
 		tab.el.title = tab.title;
 
-		const fallback = tab.view === "game" || tab.view === "games" ? PAD : tab.view === "home" ? SPARK : GLOBE;
+		const fallback = tab.view === "game" ? PAD : PAGE_ICONS[tab.view] || GLOBE;
 		if (!isFrameView(tab) || !tab.icon) {
 			setIcon(tab, fallback);
 		} else if (!tab.iconImg || tab.iconImg.dataset.src !== tab.icon) {
@@ -239,9 +243,9 @@
 		}
 		const onPage = !isFrameView(tab);
 		home.hidden = !onPage;
-		homeMain.hidden = tab.view !== "home";
-		gamesMain.hidden = tab.view !== "games";
-		gamesBtn.setAttribute("aria-pressed", String(tab.view === "games"));
+		for (const [view, el] of Object.entries(pageEls)) el.hidden = tab.view !== view;
+		navLinks.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.page === tab.view)));
+		if (onPage) home.scrollTop = 0;
 		setStarsVisible(onPage);
 		if (document.activeElement !== addr) addr.value = addrText(tab);
 		updateNav();
@@ -268,7 +272,7 @@
 		tab.url = null;
 		tab.game = null;
 		tab.icon = null;
-		tab.title = view === "games" ? "Games" : "New Tab";
+		tab.title = PAGES[view] || "New Tab";
 		if (tab === active) activate(tab);
 		else renderTab(tab);
 	}
@@ -426,22 +430,82 @@
 		navigate(active, value);
 	});
 
-	// Shortcut logos: if a site's logo can't load, show its letters instead
-	document.querySelectorAll(".tile-logo").forEach((img) => {
-		const fail = () => img.parentElement.classList.add("no-logo");
-		if (img.complete && !img.naturalWidth) fail();
-		else img.addEventListener("error", fail, { once: true });
-	});
-	document.querySelectorAll(".tile").forEach((tile) => {
-		tile.addEventListener("click", () => navigate(active, tile.dataset.url));
-		tile.addEventListener("auxclick", (e) => { if (e.button === 1) { e.preventDefault(); newTab(tile.dataset.url); } });
-	});
+	/* ---------- App tiles (home, Apps, Media) from catalog.js ---------- */
+	// Each tile shows the site's own icon (loaded live through ROKI's server) on the site's color.
+	// If the icon can't load, the site's initials show instead.
+	const catalog = window.ROKI_CATALOG || { featured: [], apps: [], media: [] };
+	function appTile(app) {
+		const li = document.createElement("li");
+		const btn = document.createElement("button");
+		btn.type = "button";
+		btn.className = "app-tile" + (app.dark ? " dark-text" : "");
+		btn.style.setProperty("--tile-bg", app.bg || "");
+		btn.title = app.name;
+		const img = new Image();
+		img.className = "app-icon";
+		img.alt = "";
+		img.decoding = "async";
+		img.loading = "lazy";
+		img.onerror = () => {
+			const letters = document.createElement("span");
+			letters.className = "app-letters";
+			letters.setAttribute("aria-hidden", "true");
+			letters.textContent = initials(app.name);
+			img.replaceWith(letters);
+		};
+		img.src = "/site-icon?d=" + encodeURIComponent(app.domain);
+		const name = document.createElement("span");
+		name.className = "app-name";
+		name.textContent = app.name;
+		btn.append(img, name);
+		btn.addEventListener("click", () => navigate(active, app.url));
+		btn.addEventListener("auxclick", (e) => { if (e.button === 1) { e.preventDefault(); newTab(app.url); } });
+		li.appendChild(btn);
+		return li;
+	}
+	const allApps = [...catalog.apps, ...catalog.media];
+	$("feature-grid").replaceChildren(
+		...catalog.featured.map((n) => allApps.find((a) => a.name === n)).filter(Boolean).map(appTile),
+	);
+
+	// Apps and Media pages: a grid with a search box that filters it
+	function appPage(list, gridId, searchId, emptyId, noun) {
+		const grid = $(gridId);
+		const search = $(searchId);
+		const empty = $(emptyId);
+		const items = list.map((app) => ({ app, el: appTile(app) }));
+		grid.replaceChildren(...items.map((x) => x.el));
+		search.placeholder = `Search through ${list.length} ${noun}`;
+		search.addEventListener("input", () => {
+			const term = search.value.trim().toLowerCase();
+			let shown = 0;
+			for (const x of items) {
+				const hit = !term || x.app.name.toLowerCase().includes(term) || x.app.domain.includes(term);
+				x.el.hidden = !hit;
+				if (hit) shown++;
+			}
+			empty.hidden = shown > 0;
+		});
+		search.addEventListener("keydown", (e) => {
+			if (e.key !== "Enter") return;
+			const first = items.find((x) => !x.el.hidden);
+			if (first) navigate(active, first.app.url);
+		});
+	}
+	appPage(catalog.apps, "apps-grid", "apps-search", "apps-nomatch", "apps");
+	appPage(catalog.media, "media-grid", "media-search", "media-nomatch", "video and music sites");
+
+	// Top bar: ROKI goes home; the links open their page in this tab (again to go back home)
+	$("nav-home").addEventListener("click", () => goHome(active));
+	navLinks.forEach((b) => b.addEventListener("click", () => {
+		if (active.view === b.dataset.page) goHome(active);
+		else setPage(active, b.dataset.page);
+	}));
 
 	/* ---------- Games list (from public/games via /games/list.json) ---------- */
 	const gameGrid = $("game-grid");
 	const gamesEmpty = $("games-empty");
 	const gamesStatus = $("games-status");
-	const gamesCount = $("games-count");
 	let gamesLoading = null;
 
 	function gameCard(game) {
@@ -477,13 +541,31 @@
 		return li;
 	}
 
+	const gamesSearch = $("games-search");
+	const gamesSort = $("games-sort");
+	const gamesNoMatch = $("games-nomatch");
+	let allGames = [];
+	function showGames() {
+		const term = gamesSearch.value.trim().toLowerCase();
+		const list = allGames
+			.filter((g) => !term || g.name.toLowerCase().includes(term))
+			.sort((a, b) => a.name.localeCompare(b.name) * (gamesSort.value === "za" ? -1 : 1));
+		gameGrid.replaceChildren(...list.map(gameCard));
+		gameGrid.hidden = list.length === 0;
+		gamesEmpty.hidden = allGames.length > 0;
+		gamesNoMatch.hidden = !(allGames.length > 0 && list.length === 0);
+	}
 	function renderGames(games) {
 		gamesStatus.hidden = true;
-		gameGrid.replaceChildren(...games.map(gameCard));
-		gameGrid.hidden = games.length === 0;
-		gamesEmpty.hidden = games.length > 0;
-		gamesCount.textContent = games.length === 1 ? "1 game" : games.length + " games";
+		allGames = games;
+		const n = games.length;
+		gamesSearch.placeholder = n ? `Search through ${n} game${n === 1 ? "" : "s"}` : "Search games";
+		gamesSort.options[0].textContent = `A to Z (${n})`;
+		gamesSort.options[1].textContent = `Z to A (${n})`;
+		showGames();
 	}
+	gamesSearch.addEventListener("input", showGames);
+	gamesSort.addEventListener("change", showGames);
 
 	function loadGames() {
 		if (gamesLoading) return gamesLoading;
@@ -506,39 +588,40 @@
 		return gamesLoading;
 	}
 
-	gamesBtn.addEventListener("click", () => {
-		if (active.view === "games") goHome(active);
-		else setPage(active, "games");
-	});
 
 	/* ---------- Clock ---------- */
 	const clockEl = $("clock");
+	const dateEl = $("hero-date");
 	const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 	const dateFmt = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" });
-	function tick() { const now = new Date(); clockEl.textContent = timeFmt.format(now) + " · " + dateFmt.format(now); }
+	function tick() {
+		const now = new Date();
+		clockEl.textContent = timeFmt.format(now);
+		dateEl.textContent = dateFmt.format(now);
+	}
 	tick();
 	setInterval(tick, 1000);
 
-	/* ---------- Panels ---------- */
-	const panels = [["effects-btn", "effects-panel"], ["settings-btn", "settings-panel"]]
-		.map(([b, p]) => ({ btn: $(b), panel: $(p) }));
-	function closePanels(except) {
-		panels.forEach((x) => { if (x !== except) { x.panel.hidden = true; x.btn.setAttribute("aria-expanded", "false"); } });
-	}
-	panels.forEach((x) => x.btn.addEventListener("click", (e) => {
-		e.stopPropagation();
-		const open = x.panel.hidden;
-		closePanels(x);
-		x.panel.hidden = !open;
-		x.btn.setAttribute("aria-expanded", String(open));
-	}));
-	document.addEventListener("click", (e) => { if (!e.target.closest(".panel")) closePanels(); });
-	document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePanels(); });
+	/* ---------- Settings (the window itself, themes, tab cloak and Prevent Close are in settings.js) ---------- */
+	const engineEl = $("engine");
+	engineEl.value = engine;
+	engineEl.addEventListener("change", () => { engine = engineEl.value; store.set("engine", engine); });
 
-	document.querySelectorAll('input[name="engine"]').forEach((r) => {
-		r.checked = r.value === engine;
-		r.addEventListener("change", () => { engine = r.value; store.set("engine", engine); });
-	});
+	// Ad block: the service worker (sw.js) reads this switch from the "roki-config" cache
+	const adblockEl = $("adblock");
+	adblockEl.checked = store.get("adblock", true);
+	async function sendAdblock() {
+		try {
+			const cache = await caches.open("roki-config");
+			await cache.put("/__roki/adblock", new Response(adblockEl.checked ? "1" : "0"));
+		} catch (e) {}
+		try {
+			const reg = await navigator.serviceWorker.getRegistration();
+			for (const w of [reg && reg.active, navigator.serviceWorker.controller]) if (w) w.postMessage({ type: "roki-adblock", on: adblockEl.checked });
+		} catch (e) {}
+	}
+	adblockEl.addEventListener("change", () => { store.set("adblock", adblockEl.checked); sendAdblock(); });
+	sendAdblock();
 
 	const autoWipeEl = $("auto-wipe");
 	autoWipeEl.checked = store.get("auto-wipe", true);
@@ -551,6 +634,7 @@
 		for (const t of tabs) if (t.view === "web") dropFrame(t);
 		await wipeSiteData();
 		btn.textContent = "Wiped. Restarting…";
+		window.__rokiLeaving = true; // no "Leave site?" question for this
 		setTimeout(() => location.reload(), 600);
 	});
 
@@ -564,7 +648,7 @@
 	try { inCloak = window.top !== window && window.top.location.href === "about:blank"; } catch (e) {}
 	if (inCloak) {
 		cloakBtn.disabled = true;
-		cloakBtn.textContent = "Link hidden (in about:blank)";
+		cloakBtn.textContent = "Already hidden in about:blank";
 	}
 
 	// Returns true once ROKI has moved into the blank tab; otherwise shows why in noteEl
@@ -596,20 +680,35 @@
 			noteEl.hidden = false;
 			return false;
 		}
+		window.__rokiLeaving = true; // no "Leave site?" question for this
 		location.replace(CLOAK_EXIT);
 		return true;
 	}
 	cloakBtn.addEventListener("click", () => openCloak(cloakNote));
+	$("corner-cloak").addEventListener("click", () => {
+		if (inCloak) return;
+		if (!openCloak(cloakNote)) setPage(active, "settings");
+	});
+	$("corner-panic").addEventListener("click", () => { if (window.rokiPanic) window.rokiPanic(); });
 
-	// Opened from a friend launcher (ROKI link + #cloak): one tap moves ROKI into about:blank.
-	// Browsers only allow a new tab after a tap or click, so it can't happen on its own.
-	if (location.hash === "#cloak") {
+	// "Open it every time" (Settings > About:blank) and the friend launcher (ROKI link + #cloak):
+	// ROKI moves itself into about:blank. Browsers only allow that new tab right away if pop-ups are
+	// allowed for ROKI; otherwise one tap on the cover screen does it.
+	const cloakAutoEl = $("cloak-auto");
+	cloakAutoEl.checked = store.get("cloak-auto", false) === true;
+	cloakAutoEl.addEventListener("change", () => store.set("cloak-auto", cloakAutoEl.checked));
+	const fromLauncher = location.hash === "#cloak";
+	if (fromLauncher) {
 		try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
-		if (!inCloak) {
-			const gate = $("cloak-gate");
+	}
+	if (!inCloak && (fromLauncher || cloakAutoEl.checked)) {
+		const gate = $("cloak-gate");
+		const gateNote = $("cloak-gate-note");
+		if (!(cloakAutoEl.checked && openCloak(gateNote))) {
+			gateNote.hidden = true;
 			gate.hidden = false;
 			$("cloak-gate-btn").addEventListener("click", () => {
-				if (openCloak($("cloak-gate-note"))) gate.hidden = true;
+				if (openCloak(gateNote)) gate.hidden = true;
 			});
 		}
 	}
@@ -681,9 +780,60 @@
 		}
 	});
 
+	/* ---------- Save data: export / import ROKI's settings ---------- */
+	// Everything ROKI saves in this browser is under "roki:" in localStorage (sites' own data isn't).
+	const dataStatus = $("data-status");
+	function say(text, bad) {
+		dataStatus.textContent = text;
+		dataStatus.classList.toggle("bad", !!bad);
+	}
+	$("export-btn").addEventListener("click", () => {
+		const data = {};
+		try {
+			for (let i = 0; i < localStorage.length; i++) {
+				const k = localStorage.key(i);
+				if (k && k.startsWith("roki:") && k !== SESSION_KEY) data[k] = localStorage.getItem(k);
+			}
+		} catch (e) {
+			say("Couldn't read ROKI's settings in this browser.", true);
+			return;
+		}
+		const file = JSON.stringify({ format: "roki-settings", version: 1, exported: new Date().toISOString(), data }, null, "\t");
+		const url = URL.createObjectURL(new Blob([file], { type: "application/json" }));
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = "roki-settings.json";
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+		setTimeout(() => URL.revokeObjectURL(url), 10000);
+		say(`Saved ${Object.keys(data).length} settings to roki-settings.json.`);
+	});
+	const importFile = $("import-file");
+	$("import-btn").addEventListener("click", () => importFile.click());
+	importFile.addEventListener("change", async () => {
+		const file = importFile.files && importFile.files[0];
+		importFile.value = "";
+		if (!file) return;
+		try {
+			if (file.size > 200000) throw new Error("too big");
+			const parsed = JSON.parse(await file.text());
+			if (!parsed || parsed.format !== "roki-settings" || typeof parsed.data !== "object") throw new Error("not ROKI");
+			const entries = Object.entries(parsed.data).filter(
+				([k, v]) => k.startsWith("roki:") && k !== SESSION_KEY && typeof v === "string" && v.length < 20000,
+			);
+			for (const [k, v] of entries) localStorage.setItem(k, v);
+			say(`Loaded ${entries.length} settings. Restarting ROKI…`);
+			window.__rokiLeaving = true; // no "Leave site?" question for this
+			setTimeout(() => location.reload(), 800);
+		} catch (e) {
+			say("That file isn't a ROKI settings file (roki-settings.json).", true);
+		}
+	});
+
 	/* ---------- Starfield ---------- */
 	const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-	const fx = { stars: store.get("fx-stars", true), twinkle: store.get("fx-twinkle", !reduce), shooting: store.get("fx-shooting", !reduce) };
+	const fx = { stars: store.get("fx-stars", false), twinkle: store.get("fx-twinkle", !reduce), shooting: store.get("fx-shooting", !reduce) };
 	const canvas = $("stars");
 	const ctx = canvas.getContext("2d");
 	const starColor = getComputedStyle(document.documentElement).getPropertyValue("--star").trim() || "#ffffff";

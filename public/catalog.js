@@ -1,0 +1,67 @@
+"use strict";
+// ROKI's app list: the big tiles on the home page and the Apps and Media pages.
+// Icons are each site's own, loaded live through ROKI's server (/site-icon?d=<domain>).
+// bg is the tile color; dark: true means the tile is light, so its name is written in dark text.
+// To add an app, add a line here. Leave out sites made for pirating movies, shows or music.
+window.ROKI_CATALOG = {
+	// The ten big tiles on the home page (names from "apps" or "media" below)
+	featured: ["YouTube", "TikTok", "Twitch", "Discord", "Google", "GitHub", "Spotify", "Reddit", "Instagram", "Snapchat"],
+
+	apps: [
+		{ name: "ChatGPT", url: "https://chatgpt.com", domain: "chatgpt.com", bg: "#ffffff", dark: true },
+		{ name: "Gemini", url: "https://gemini.google.com", domain: "gemini.google.com", bg: "#ffffff", dark: true },
+		{ name: "Google", url: "https://www.google.com", domain: "google.com", bg: "#f1f3f4", dark: true },
+		{ name: "Gmail", url: "https://mail.google.com", domain: "mail.google.com", bg: "#ffffff", dark: true },
+		{ name: "Google Docs", url: "https://docs.google.com", domain: "docs.google.com", bg: "#ffffff", dark: true },
+		{ name: "Google Drive", url: "https://drive.google.com", domain: "drive.google.com", bg: "#ffffff", dark: true },
+		{ name: "Discord", url: "https://discord.com/app", domain: "discord.com", bg: "#5865f2" },
+		{ name: "GitHub", url: "https://github.com", domain: "github.com", bg: "#0d1117" },
+		{ name: "Reddit", url: "https://www.reddit.com", domain: "reddit.com", bg: "#ff4500" },
+		{ name: "Pinterest", url: "https://www.pinterest.com", domain: "pinterest.com", bg: "#e60023" },
+		{ name: "Tumblr", url: "https://www.tumblr.com", domain: "tumblr.com", bg: "#001935" },
+		{ name: "X", url: "https://x.com", domain: "x.com", bg: "#000000" },
+		{ name: "Instagram", url: "https://www.instagram.com", domain: "instagram.com", bg: "#d62976" },
+		{ name: "Snapchat", url: "https://www.snapchat.com", domain: "snapchat.com", bg: "#fffc00", dark: true },
+		{ name: "TikTok", url: "https://www.tiktok.com", domain: "tiktok.com", bg: "#000000" },
+		{ name: "Facebook", url: "https://www.facebook.com", domain: "facebook.com", bg: "#1877f2" },
+		{ name: "Amazon", url: "https://www.amazon.com", domain: "amazon.com", bg: "#ffffff", dark: true },
+		{ name: "eBay", url: "https://www.ebay.com", domain: "ebay.com", bg: "#ffffff", dark: true },
+		{ name: "Roblox", url: "https://www.roblox.com", domain: "roblox.com", bg: "#335fff" },
+		{ name: "now.gg", url: "https://now.gg", domain: "now.gg", bg: "#ffffff", dark: true },
+		{ name: "Chess.com", url: "https://www.chess.com", domain: "chess.com", bg: "#262421" },
+		{ name: "Lichess", url: "https://lichess.org", domain: "lichess.org", bg: "#161512" },
+		{ name: "Coolmath Games", url: "https://www.coolmathgames.com", domain: "coolmathgames.com", bg: "#ffffff", dark: true },
+		{ name: "Poki", url: "https://poki.com", domain: "poki.com", bg: "#ffffff", dark: true },
+		{ name: "CrazyGames", url: "https://www.crazygames.com", domain: "crazygames.com", bg: "#6842ff" },
+		{ name: "Steam", url: "https://store.steampowered.com", domain: "store.steampowered.com", bg: "#171a21" },
+		{ name: "Scratch", url: "https://scratch.mit.edu", domain: "scratch.mit.edu", bg: "#855cd6" },
+		{ name: "VS Code", url: "https://vscode.dev", domain: "vscode.dev", bg: "#1e1e1e" },
+		{ name: "Replit", url: "https://replit.com", domain: "replit.com", bg: "#0e1525" },
+		{ name: "CodePen", url: "https://codepen.io", domain: "codepen.io", bg: "#000000" },
+		{ name: "Canva", url: "https://www.canva.com", domain: "canva.com", bg: "#00c4cc" },
+		{ name: "Wikipedia", url: "https://www.wikipedia.org", domain: "wikipedia.org", bg: "#ffffff", dark: true },
+		{ name: "Quizlet", url: "https://quizlet.com", domain: "quizlet.com", bg: "#4255ff" },
+		{ name: "Khan Academy", url: "https://www.khanacademy.org", domain: "khanacademy.org", bg: "#14bf96" },
+		{ name: "Desmos", url: "https://www.desmos.com/calculator", domain: "desmos.com", bg: "#ffffff", dark: true },
+		{ name: "Duolingo", url: "https://www.duolingo.com", domain: "duolingo.com", bg: "#58cc02" },
+		{ name: "ESPN", url: "https://www.espn.com", domain: "espn.com", bg: "#cc0000" },
+		{ name: "Wattpad", url: "https://www.wattpad.com", domain: "wattpad.com", bg: "#ff500a" },
+		{ name: "DuckDuckGo", url: "https://duckduckgo.com", domain: "duckduckgo.com", bg: "#de5833" },
+		{ name: "Weather", url: "https://weather.com", domain: "weather.com", bg: "#005986" },
+	],
+
+	media: [
+		{ name: "YouTube", url: "https://www.youtube.com", domain: "youtube.com", bg: "#ffffff", dark: true },
+		{ name: "YouTube Music", url: "https://music.youtube.com", domain: "music.youtube.com", bg: "#c4302b" },
+		{ name: "Twitch", url: "https://www.twitch.tv", domain: "twitch.tv", bg: "#9146ff" },
+		{ name: "Kick", url: "https://kick.com", domain: "kick.com", bg: "#0b0e0f" },
+		{ name: "Spotify", url: "https://open.spotify.com", domain: "spotify.com", bg: "#1ed760", dark: true },
+		{ name: "SoundCloud", url: "https://soundcloud.com", domain: "soundcloud.com", bg: "#ff5500" },
+		{ name: "Pluto TV", url: "https://pluto.tv", domain: "pluto.tv", bg: "#000000" },
+		{ name: "Tubi", url: "https://tubitv.com", domain: "tubitv.com", bg: "#7408ff" },
+		{ name: "Dailymotion", url: "https://www.dailymotion.com", domain: "dailymotion.com", bg: "#0d0d0d" },
+		{ name: "Vimeo", url: "https://vimeo.com", domain: "vimeo.com", bg: "#17d5ff", dark: true },
+		{ name: "Bandcamp", url: "https://bandcamp.com", domain: "bandcamp.com", bg: "#1da0c3" },
+		{ name: "Radio Garden", url: "https://radio.garden", domain: "radio.garden", bg: "#1b1b1b" },
+	],
+};

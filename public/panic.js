@@ -44,9 +44,11 @@
 		const url = toSafeUrl(dest) || DEFAULT_URL;
 		// In the about:blank cloak ROKI is inside a frame, so leave from the whole tab.
 		// replace() also keeps ROKI out of the Back button.
+		window.__rokiLeaving = true; // no "Leave site?" question (Prevent Close) for the panic key
 		try { window.top.location.replace(url); return; } catch (e) {}
 		location.replace(url);
 	}
+	window.rokiPanic = panic; // the panic button in ROKI's corner uses this too
 
 	function onKey(e) {
 		if (recording || !on || e.repeat) return;

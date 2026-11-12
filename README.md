@@ -6,12 +6,13 @@ ROKI is built on the [Scramjet demo app](https://github.com/MercuryWorkshop/Scra
 
 ## What's in it
 
-- **Start page:** starfield, clock, search bar and shortcut tiles. Effects can be turned off in Effects.
+- **Start page:** a floating top bar (Games, Apps, Media, Settings), a big search bar and big tiles for favorite sites.
+- **Apps and Media:** searchable grids of about 50 sites, listed in `public/catalog.js`. Each tile shows the site's own icon, fetched live through ROKI's server.
 - **Tabs:** sites open through the [Scramjet](https://github.com/MercuryWorkshop/scramjet) proxy, each in its own tab with back, forward and reload.
-- **Secret invite link, no password:** opening the invite link (`/join/<secret key>`) once gets a browser in for 30 days. Everyone else only sees a lock screen, and 10 wrong links locks that address out for 15 minutes. Copy the link or download a friend launcher in Settings.
-- **Games:** anything in `public/games` shows up on the Games page (see `public/games/README.txt`).
-- **Panic key:** press `` ` `` to jump to Google. Change the key, the site, or turn it off in Settings.
-- **Privacy:** DuckDuckGo by default, site data wiped between visits, an about:blank cloak and a friend launcher.
+- **Secret invite link, no password:** opening the invite link (`/join/<secret key>`) once gets a browser in for 30 days. Everyone else only sees a lock screen, and 10 wrong links locks that address out for 15 minutes.
+- **Games:** anything in `public/games` shows up on the Games page (see `public/games/README.txt`), with search and sorting.
+- **Settings page:** six color themes (Legacy, Blue, Midnight, Forest, Sunset, High Contrast), optional stars, tab cloak (fake tab name and icon from presets or your own), about:blank cloak (once or every time), panic key, ad and tracker blocking, "ask before closing", site data wiping, invite link and friend launcher, and settings export/import.
+- **Corner buttons:** jump into about:blank, panic, or open the source code.
 
 ## Run it on your computer
 
