@@ -126,7 +126,7 @@
 		const heavy = t.heavy || 1;
 		const group = -nextGroup++;
 		const filter = { group, category: CAT.fighter, mask: 0xffffffff };
-		const opts = (extra) => ({ collisionFilter: filter, friction: 0.25, frictionAir: 0.02, restitution: 0.05, density: 0.0016 * heavy, ...extra });
+		const opts = (extra) => ({ collisionFilter: filter, friction: 0.12, frictionAir: 0.008, restitution: 0.05, density: 0.0016 * heavy, ...extra });
 		const ty = FLOOR_Y - 84 * s; // torso center when standing
 		const torso = Bodies.rectangle(x, ty, 28 * s, 58 * s, opts({ chamfer: { radius: 12 * s } }));
 		const head = Bodies.circle(x, ty - 46 * s, 17 * s, opts({ density: 0.0021 * heavy }));
@@ -141,7 +141,7 @@
 			flashColor: lighten(t.color, 0.6), flashDark: lighten(t.dark, 0.6),
 			torso, head, arms: [], legs: [], bodies: [torso, head], joints: [],
 			move: 0, aim: { x: x + facing * 200, y: ty - 46 * s }, grounded: true, weapon: null, equip: null, equipT: 0,
-			stepT: 0, stepLeg: 0, crouch: 0, reach: null, throwT: 0, lungeT: 0, lungeCool: 0, airLunges: 0, lungeStrike: false, lungeArm: 0, trail: [], swingTrail: [],
+			stepT: 0, stepLeg: 0, crouch: 0, reach: null, throwT: 0, lungeT: 0, lungeCool: 0, airLunges: 0, lungeStrike: false, lungeArm: 0, held: null, heldBy: null, thrownBy: null, thrownT: 0, thrownHit: false, trail: [], swingTrail: [],
 			stun: 0, ko: false, flash: 0, hurt: 0, phase: 0, cool: 0, kcool: 0, jcool: 0, slamCool: 0, nextArm: 0,
 			ai: { timer: 30, err: { x: 0, y: 0 }, want: null, target: null },
 		};
@@ -293,7 +293,7 @@
 
 	const shoulder = (f) => along(f.torso, -24 * f.s);
 	const hip = (f) => along(f.torso, 25 * f.s);
-	const reachOf = (f) => 74 * f.s + 26 + (f.weapon ? f.weapon.t.len * 0.7 : 0);
+	const reachOf = (f) => 60 * f.s + 20 + (f.weapon ? f.weapon.t.len * 0.7 : 0);
 	const opponentsOf = (f) => fighters.filter((o) => o.team !== f.team && !o.ko);
 	function nearestOpponent(f) {
 		let best = null;
@@ -315,6 +315,15 @@
 		const s = f.s;
 		const T = f.torso;
 		if (f.stun > 0) f.stun--;
+		if (f.heldBy) f.stun = Math.max(f.stun, 2);
+		if (f.held) {
+			const h = f.held;
+			if (--h.t <= 0 || f.ko || f.stun > 0 || h.foe.ko) release(f);
+		}
+		if (f.thrownT > 0) {
+			f.thrownT--;
+			f.stun = Math.max(f.stun, 2); // limp until it lands
+		}
 		const str = f.ko ? 0 : f.stun > 0 ? 0.08 : 1;
 		const fc = f.facing;
 		const v = vel(T);
@@ -325,7 +334,27 @@
 		// Reaching for a weapon: bend toward it, and grab it once the hand touches the grip
 		f.crouch = 0;
 		let reachLean = 0;
-		if (f.reach) {
+		if (f.reach && f.reach.foe) {
+			const o = f.reach.foe;
+			if (o.ko || o.heldBy || f.held) f.reach = null;
+			else {
+				f.move = Math.sign(o.torso.position.x - T.position.x) * 0.8; // step in to grab
+				const hand = along(f.arms[0].l, 16 * s);
+				let best = null;
+				let bestD = 42 * s;
+				for (const b of [o.torso, o.head, ...o.arms.map((a) => a.u), ...o.legs.map((l) => l.u)]) {
+					const d = Math.hypot(hand.x - b.position.x, hand.y - b.position.y) - 10 * o.s;
+					if (d < bestD) {
+						best = b;
+						bestD = d;
+					}
+				}
+				if (best) {
+					grabFoe(f, o, best);
+					f.reach = null;
+				} else if (--f.reach.t <= 0) f.reach = null;
+			}
+		} else if (f.reach) {
 			const w = f.reach.w;
 			if (w && !w.holder && !f.weapon && weapons.includes(w)) {
 				const g = gripOf(w);
@@ -351,7 +380,7 @@
 				if (dy < 8 * s) vy += (dy * 0.085 - v.y * 0.2 - 0.47) * str;
 			}
 			let vx = v.x;
-			if (f.move) vx += (f.move * f.speed - v.x) * (f.grounded ? 0.13 : 0.03) * str;
+			if (f.move) vx += (f.move * f.speed * (f.held ? 0.7 : 1) - v.x) * (f.grounded ? 0.2 : 0.03) * str;
 			else if (f.grounded) vx *= 1 - 0.12 * str; // plant the feet
 			Body.setVelocity(T, { x: vx, y: vy });
 			if (f.move && f.grounded) {
@@ -408,10 +437,14 @@
 			if (i === 0 && f.reach) {
 				const w = f.reach.w;
 				const sh = shoulder(f);
-				const g = w ? gripOf(w) : { x: sh.x + fc * 80, y: sh.y + 60 };
+				const g = f.reach.foe ? f.reach.foe.torso.position : w ? gripOf(w) : { x: sh.x + fc * 80, y: sh.y + 60 };
 				const d = norm(g.x - sh.x, g.y - sh.y);
 				ua = la = angleFor(d.x, d.y);
 				k = 0.55;
+			} else if (i === 0 && f.held && f.throwT <= 0) {
+				ua = angleFor(fc * 0.9, -0.15);
+				la = angleFor(fc * 0.9, -0.35);
+				k = 0.5;
 			} else if (i === 0 && f.throwT > 0) {
 				ua = la = f.throwT > 8 ? angleFor(-fc * 0.7, -0.8) : angleFor(fc, -0.35);
 				k = 0.7;
@@ -458,6 +491,7 @@
 		}
 		if (f.throwT > 0) {
 			f.throwT--;
+			if (f.throwT === 6 && f.held) throwFoe(f);
 			if (f.throwT === 6 && f.weapon) {
 				const w = f.weapon;
 				const hand = along(f.arms[0].l, 16 * s);
@@ -525,8 +559,8 @@
 			sfx.whoosh();
 			return;
 		}
-		const arm = f.arms[f.nextArm];
-		f.nextArm ^= 1;
+		const arm = f.held ? f.arms[1] : f.arms[f.nextArm];
+		if (!f.held) f.nextArm ^= 1;
 		arm.t = 11;
 		arm.hit = false;
 		f.cool = f.punchCool;
@@ -534,7 +568,7 @@
 		const d = norm(f.aim.x - sh.x, f.aim.y - sh.y);
 		addVel(arm.l, d.x * 17, d.y * 17);
 		addVel(arm.u, d.x * 8, d.y * 8);
-		addVel(f.torso, d.x * 1.5, 0);
+		addVel(f.torso, d.x * 3, 0);
 		sfx.whoosh();
 	}
 
@@ -562,16 +596,16 @@
 
 	// Tap a direction: the whole body launches that way, fist (or weapon) first. Two lunges in the air.
 	function lunge(f, dir) {
-		if (!canAct(f) || f.lungeCool > 0 || f.reach || f.throwT > 0) return false;
+		if (!canAct(f) || f.lungeCool > 0 || f.reach || f.throwT > 0 || f.held) return false;
 		if (!f.grounded && f.airLunges >= 2) return false;
 		if (!f.grounded) f.airLunges++;
 		f.facing = dir;
 		f.lungeT = 32;
 		f.lungeCool = 20;
-		const up = f.grounded ? (f.weapon ? -3.5 : -5.5) : -3;
+		const up = f.grounded ? (f.weapon ? -3.5 : -5) : -3;
 		for (const b of f.bodies) {
 			const v = vel(b);
-			Body.setVelocity(b, { x: dir * 11, y: Math.min(v.y, 0) + up });
+			Body.setVelocity(b, { x: dir * 8.5, y: Math.min(v.y, 0) + up });
 		}
 		// The strike stays live for the whole flight: the fist leads until it lands, a weapon swings once in reach
 		f.lungeStrike = true;
@@ -609,11 +643,59 @@
 	// Space: reach out and grab the nearest weapon (the hand has to touch it), or throw the one you hold
 	function grab(f) {
 		if (!canAct(f) || f.reach || f.throwT > 0) return;
-		if (f.weapon) {
+		if (f.weapon || f.held) {
 			f.throwT = 16;
 			return;
 		}
+		const opp = nearestOpponent(f);
+		if (opp && !opp.heldBy) {
+			const dx = opp.torso.position.x - f.torso.position.x;
+			if (Math.abs(dx) < 125 * f.s + 20 * opp.s && Math.abs(opp.torso.position.y - f.torso.position.y) < 190) {
+				f.facing = Math.sign(dx) || f.facing;
+				f.reach = { foe: opp, t: 22 };
+				return;
+			}
+		}
 		f.reach = { w: nearestFreeWeapon(f, 130 * f.s), t: 24 };
+	}
+
+	// The hand closes on whatever part of the enemy it touched; they go limp until thrown or free
+	function grabFoe(f, o, b) {
+		const arm = f.arms[0].l;
+		const hand = along(arm, 16 * f.s);
+		const joint = Constraint.create({ bodyA: arm, pointA: rot({ x: 0, y: 16 * f.s }, arm.angle), bodyB: b, pointB: { x: hand.x - b.position.x, y: hand.y - b.position.y }, length: 0, stiffness: 0.7, damping: 0.1 });
+		Composite.add(world, joint);
+		f.held = { foe: o, joint, t: 150 };
+		o.heldBy = f;
+		drop(o, false);
+		o.reach = null;
+		o.lungeStrike = false;
+		popups.push({ x: hand.x, y: hand.y - 30, text: "GRAB!", size: 26, life: 40, max: 40, color: "#ffffff" });
+		sfx.pickup();
+	}
+
+	function release(f) {
+		const h = f.held;
+		if (!h) return;
+		Composite.remove(world, h.joint);
+		h.foe.heldBy = null;
+		f.held = null;
+	}
+
+	function throwFoe(f) {
+		const o = f.held.foe;
+		release(f);
+		const fc = f.facing;
+		const k = 1 / Math.sqrt(o.weight);
+		const carry = vel(f.torso).x * 0.5;
+		for (const b of o.bodies) Body.setVelocity(b, { x: fc * 9.5 * k + carry, y: -8.5 * k });
+		Body.setAngularVelocity(o.torso, fc * 0.25);
+		o.stun = Math.max(o.stun, 30);
+		o.thrownBy = f;
+		o.thrownT = 180;
+		o.thrownHit = false;
+		shake = Math.min(18, shake + 6);
+		sfx.whoosh();
 	}
 
 	/* ---------- Hits ---------- */
@@ -652,6 +734,11 @@
 			} else {
 				return;
 			}
+		} else if (x.wb && x.wb.f !== V && x.wb.f.thrownT > 0 && x.wb.f.thrownBy && x.wb.f.thrownBy.team !== V.team && !x.wb.f.thrownHit) {
+			const T = x.wb.f;
+			A = T.thrownBy;
+			mult = 0.7;
+			done = () => { T.thrownHit = true; };
 		} else {
 			const px = x.wb;
 			if (!px || px.f === V || px.f.team === V.team) return;
@@ -688,6 +775,7 @@
 		addVel(V.head, nx * kb * 0.5, -1.5);
 		if (dmg >= 8) V.stun = Math.max(V.stun, Math.min(humans.includes(V) ? 22 : 46, Math.round(dmg * 1.6)));
 		if (V.weapon && dmg >= 18 && Math.random() < 0.4) drop(V, false);
+		if (V.held && dmg >= 8) release(V);
 		if (dmg >= 8) V.reach = null;
 		burst(at.x, at.y, Math.min(24, 6 + dmg / 2), head ? "#fff3b0" : "#ffffff", nx, ny);
 		popups.push({ x: at.x, y: at.y - 10, text: String(dmg), size: 18 + Math.min(28, dmg * 0.7), life: 50, max: 50, color: head ? "#ffd23f" : "#ffffff" });
@@ -712,15 +800,19 @@
 	// A head or body slammed into the floor or a wall hurts a little
 	function slam(x, y) {
 		const p = x.wb;
-		if (!p || y.wb || y.wpn || (p.kind !== "head" && p.kind !== "torso")) return;
+		if (!p || y.wb || y.wpn) return;
 		const F = p.f;
+		if (p.kind !== "head" && p.kind !== "torso" && !(F.thrownT > 0)) return;
 		if (F.ko || F.slamCool > 0 || (F.stun <= 0 && F.grounded)) return;
+		const thrown = F.thrownT > 0;
 		const v = vel(x);
-		const sp = Math.hypot(v.x, v.y);
-		if (sp < 12) return;
+		const tv = vel(F.torso);
+		const sp = thrown ? Math.max(Math.hypot(v.x, v.y), Math.hypot(tv.x, tv.y)) : Math.hypot(v.x, v.y);
+		if (sp < (thrown ? 3 : 12)) return;
 		F.slamCool = 24;
+		if (thrown && y.label === "floor") F.thrownT = 0; // landed
 		const n = norm(v.x, v.y);
-		hurt(F, Math.min(20, (sp - 11) * 0.9), x, -n.x * 0.3, -n.y * 0.3, 2, { x: x.position.x, y: x.position.y }, false);
+		hurt(F, thrown ? clamp((sp - 2) * 2.2, 6, 34) : Math.min(20, (sp - 11) * 0.9), x, -n.x * 0.3, -n.y * 0.3, 2, { x: x.position.x, y: x.position.y }, false);
 	}
 
 	function onCollide(e) {
@@ -856,6 +948,7 @@
 	const skinById = (id) => SKINS.find((k) => k.id === id) || SKINS[0];
 
 	function clearArena() {
+		for (const f of fighters) release(f);
 		for (const w of [...weapons]) removeWeapon(w);
 		for (const f of fighters) removeFighter(f);
 		fighters = [];
@@ -1046,6 +1139,11 @@
 		const dir = (isDown(c.right) ? 1 : 0) - (isDown(c.left) ? 1 : 0);
 		const tapR = wasPressed(c.right);
 		const tapL = wasPressed(c.left);
+		if (f.heldBy) {
+			if (tapR || tapL || wasPressed(c.jump) || wasPressed(c.kick)) f.heldBy.held.t -= 14; // mash to break free
+			f.move = 0;
+			return;
+		}
 		f.move = dir;
 		const opp = nearestOpponent(f);
 		if (dir) f.facing = dir;
@@ -1095,13 +1193,15 @@
 			if (ai.target) {
 				const wx = ai.target.body.position.x - e.torso.position.x;
 				e.move = Math.abs(wx) > 30 ? Math.sign(wx) : 0;
-			} else if (dist > reach) e.move = Math.sign(dx);
-			else if (dist < reach * 0.5) e.move = -Math.sign(dx) * 0.6;
+			} else if (dist > reach * 0.7) e.move = Math.sign(dx); // close in to where a fist actually lands
+			else if (dist < reach * 0.35) e.move = -Math.sign(dx) * 0.6;
 			else e.move = Math.random() < 0.3 ? Math.sign(dx) * 0.5 : 0;
-			if (dist < reach * 1.2 && Math.random() < t.aggro) ai.want = !e.weapon && Math.random() < t.kick ? "kick" : "attack";
+			if (dist < reach * 0.9 && Math.random() < t.aggro + 0.15) ai.want = !e.weapon && Math.random() < t.kick ? "kick" : "attack";
+			if (!e.weapon && !e.held && dist < reach && Math.random() < 0.12 + t.aggro * 0.1) ai.want = "grab";
+			if (e.heldBy && Math.random() < 0.5) e.heldBy.held.t -= 10;
 			if (e.weapon && dist > 380 && Math.random() < 0.05) grab(e); // throw it
 			if (e.grounded && dist > reach * 1.6 && Math.random() < 0.06) jump(e);
-			if (dist > reach * 0.9 && dist < 330 && e.lungeCool <= 0 && Math.random() < t.aggro * 0.6) lunge(e, Math.sign(dx));
+			if (dist > reach * 0.9 && dist < 380 && e.lungeCool <= 0 && Math.random() < 0.25 + t.aggro * 0.6) lunge(e, Math.sign(dx));
 		}
 		if (ai.target) {
 			e.facing = ai.target.body.position.x >= e.torso.position.x ? 1 : -1;
@@ -1110,7 +1210,11 @@
 				ai.target = null;
 			}
 		}
-		if (ai.want === "attack" && e.cool <= 0) {
+		if (e.held && e.held.t < 115) grab(e); // throw the one it's holding
+		if (ai.want === "grab") {
+			grab(e);
+			ai.want = null;
+		} else if (ai.want === "attack" && e.cool <= 0) {
 			attack(e);
 			ai.want = null;
 		} else if (ai.want === "kick" && e.kcool <= 0 && e.cool <= 0) {
@@ -1233,7 +1337,7 @@
 	let H = 0;
 	let dpr = 1;
 	let view = { scale: 1, x: 0, y: 0 };
-	const cam = { x: WORLD_W / 2, w: WORLD_W, lift: 0 };
+	const cam = { x: WORLD_W / 2, w: WORLD_W, h: 470 };
 
 	function resize() {
 		dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1257,14 +1361,15 @@
 		}
 		cam.x += (tx - cam.x) * (snap ? 1 : 0.08);
 		cam.w += (tw - cam.w) * (snap ? 1 : 0.05);
-		const scale = Math.min(W / cam.w, H / 470);
-		const half = W / scale / 2;
-		const cx = half * 2 >= WORLD_W + 400 ? WORLD_W / 2 : clamp(cam.x, -200 + half, WORLD_W + 200 - half);
+		// Zoom out (never up) so a fighter flying high stays in view along with the floor
 		const live2 = fighters.filter((f) => !f.ko);
 		const top = live2.length && state !== "menu" ? Math.min(...live2.map((f) => f.head.position.y)) : FLOOR_Y;
-		const lift = clamp(FLOOR_Y - H * 0.7 / scale - top + 40, 0, 500);
-		cam.lift += (lift - cam.lift) * (snap ? 1 : 0.06);
-		view = { scale, x: W / 2 - cx * scale, y: H * 0.86 - FLOOR_Y * scale + cam.lift * scale };
+		const needH = clamp(FLOOR_Y - top + 90, 404, 1100) / 0.86; // world units the screen must show
+		cam.h += (needH - cam.h) * (snap ? 1 : 0.07);
+		const scale = Math.min(W / cam.w, H / cam.h);
+		const half = W / scale / 2;
+		const cx = half * 2 >= WORLD_W + 400 ? WORLD_W / 2 : clamp(cam.x, -200 + half, WORLD_W + 200 - half);
+		view = { scale, x: W / 2 - cx * scale, y: H * 0.86 - FLOOR_Y * scale };
 	}
 	addEventListener("resize", resize);
 
@@ -1646,7 +1751,7 @@
 		}
 		if (hintT > 0 && state === "fight") {
 			ctx.globalAlpha = clamp(hintT / 40, 0, 1);
-			const text = mode === "duo" ? "P1: A D lunge/walk · W jump · S kick · Space grab      P2: ← → lunge/walk · ↑ jump · ↓ kick · Enter grab" : "A D: tap to lunge at an enemy, hold to walk   ·   W: jump   ·   S: kick   ·   Space: grab or throw a weapon";
+			const text = mode === "duo" ? "P1: A D lunge/walk · W jump · S kick · Space grab      P2: ← → lunge/walk · ↑ jump · ↓ kick · Enter grab" : "A D: tap to lunge at an enemy, hold to walk   ·   W: jump   ·   S: kick   ·   Space: grab an enemy or weapon, again to throw";
 			outlinedText(text, W / 2, H - 28, Math.min(18, W / 48), "#ffffff");
 			ctx.globalAlpha = 1;
 		}
@@ -1796,7 +1901,7 @@
 			state, mode, level, round, score: [...score], coins: save.coins, skin: save.skin, weapon: save.weapon, view,
 			fighters: fighters.map((f) => ({
 				name: f.name, team: f.team, hp: f.hp, ko: f.ko, x: f.torso.position.x, y: f.torso.position.y, angle: f.torso.angle,
-				headX: f.head.position.x, headY: f.head.position.y, grounded: f.grounded, weapon: f.weapon ? f.weapon.type : null,
+				headX: f.head.position.x, headY: f.head.position.y, grounded: f.grounded, weapon: f.weapon ? f.weapon.type : null, holding: f.held ? f.held.foe.name : null, heldBy: f.heldBy ? f.heldBy.name : null, vx: vel(f.torso).x,
 			})),
 			weapons: weapons.map((w) => ({ type: w.type, held: !!w.holder, x: w.body.position.x, y: w.body.position.y })),
 		}),

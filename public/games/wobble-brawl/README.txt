@@ -12,8 +12,10 @@ Controls (1 player)
   swings as you arrive). You can lunge twice more in the air. Hold the key to walk.
 - W or up arrow: jump
 - S or down arrow: kick
-- Space: grab a weapon (your fighter bends down and reaches for the nearest one), press again to
-  throw it at whoever is in front of you
+- Space: grab the enemy in front of you (they go limp in your hand) and press again to throw them;
+  they get hurt when they land, or when they crash into another enemy. With nobody in reach, Space
+  grabs the nearest weapon instead, and pressing it again throws the weapon. If you get grabbed,
+  mash any key to break free.
 - Esc or P: pause. M: sound on/off.
 
 2 players: P1 uses A D W S + Space, P2 uses the arrow keys + Enter. First to win 3 rounds.
