@@ -1,7 +1,6 @@
-// ROKI secret-link lock.
-// There's no password. ROKI has a secret key, and opening the invite link
-// (https://your-roki/join/<key>) once logs that browser in for 30 days.
-// Strangers without the link only see the lock screen.
+// ROKI's invite link. ROKI has a secret key, and opening the invite link (https://your-roki/join/<key>)
+// leaves a cookie that lets that browser make an account (see src/accounts.js) for 30 days.
+// Strangers without the link can't make an account, so they only see the login screen.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const COOKIE = "roki_auth";
@@ -9,11 +8,14 @@ const MAX_AGE = 60 * 60 * 24 * 30; // stay logged in for 30 days
 const MAX_FAILS = 10; // wrong links allowed per IP...
 const FAIL_WINDOW = 15 * 60 * 1000; // ...in this many milliseconds
 
-// Pages anyone can load without the invite link: the lock screen, its styles,
-// the invite link itself, the shortcut logos, the Games page's cover pictures (only ROKI's own list of
-// games) and the public Scramjet library files the service worker needs.
-// The proxy connection (/wisp/) and every ROKI page stay locked.
-const OPEN_PATHS = new Set(["/login", "/login.html", "/logout", "/roki.css", "/favicon.ico", "/sw.js", "/game-art"]);
+// Pages anyone can load without logging in: the login and sign-up pages and what they use (making an
+// account still needs the invite link, which src/index.js checks), the invite link itself, the shortcut
+// logos, the Games page's cover pictures (only ROKI's own list of games) and the public Scramjet library
+// files the service worker needs. The proxy connection (/wisp/) and every ROKI page stay locked.
+const OPEN_PATHS = new Set([
+	"/login", "/login.html", "/signup", "/signup.html", "/logout", "/roki.css", "/favicon.ico", "/sw.js", "/game-art",
+	"/account/state", "/account/login", "/account/signup",
+]);
 const OPEN_PREFIXES = ["/join/", "/icons/", "/scram/", "/baremux/", "/libcurl/"];
 
 const sha = (s) => createHash("sha256").update(String(s)).digest();

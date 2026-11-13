@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>ROKI</title>
+	<link rel="icon" href="favicon.ico">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" crossorigin="anonymous">
+	<link rel="stylesheet" href="roki.css">
+</head>
+<body class="login-page">
+	<main class="login">
+		<h1 class="wordmark">ROKI</h1>
+		<form class="lock-card auth-card" id="form" novalidate>
+			<p class="lock-title">Make your ROKI account</p>
+			<label class="auth-label" for="username">Username</label>
+			<input class="auth-input" id="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required aria-describedby="name-hint">
+			<p class="auth-hint" id="name-hint">3–20 letters, numbers, _ or -. It's your name in Chat.</p>
+			<label class="auth-label" for="password">Password</label>
+			<input class="auth-input" id="password" type="password" autocomplete="new-password" maxlength="128" required aria-describedby="pw-hint">
+			<p class="auth-hint" id="pw-hint">At least 6 characters.</p>
+			<label class="auth-label" for="confirm">Password again</label>
+			<input class="auth-input" id="confirm" type="password" autocomplete="new-password" maxlength="128" required>
+			<button class="auth-btn" type="submit" id="go">Make my account</button>
+			<p class="lock-text auth-msg" id="msg" role="status"></p>
+			<p class="lock-text auth-alt">Already have an account? <a href="/login" id="login-link">Log in</a></p>
+		</form>
+	</main>
+	<script>
+		"use strict";
+		const $ = (id) => document.getElementById(id);
+		const msg = $("msg");
+		$("login-link").href = "/login" + location.hash;
+		function say(text, bad) {
+			msg.textContent = text;
+			msg.classList.toggle("bad", !!bad);
+		}
+		$("form").addEventListener("submit", async (e) => {
+			e.preventDefault();
+			const username = $("username").value.trim();
+			const password = $("password").value;
+			const confirm = $("confirm").value;
+			if (!/^[A-Za-z0-9_-]{3,20}$/.test(username)) return say("Usernames are 3-20 letters, numbers, _ or -.", true);
+			if (password.length < 6) return say("Passwords need at least 6 characters.", true);
+			if (password !== confirm) return say("The two passwords don't match.", true);
+			$("go").disabled = true;
+			say("Making your account…");
+			try {
+				const r = await fetch("/account/signup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password, confirm }) });
+				const data = await r.json().catch(() => ({}));
+				if (r.ok) return location.replace("/" + location.hash);
+				say(data.error || "Couldn't make the account. Try again.", true);
+			} catch (err) {
+				say("Can't reach ROKI right now. Check your connection.", true);
+			}
+			$("go").disabled = false;
+		});
+	</script>
+</body>
+</html>

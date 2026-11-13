@@ -9,9 +9,7 @@
 	const log = $("chat-log");
 	const empty = $("chat-empty");
 	const online = $("chat-online");
-	const nameBtn = $("chat-name-btn");
-	const nameForm = $("chat-name-form");
-	const nameInput = $("chat-name");
+	const me = $("chat-me");
 	const form = $("chat-form");
 	const input = $("chat-input");
 	const sendBtn = $("chat-send");
@@ -24,7 +22,7 @@
 		set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
 	};
 
-	let myName = (store.get("roki:chat-name") || "").trim();
+	let myName = ""; // the logged-in account's username, which the server puts on every message
 	let source = null;
 	let lastId = 0;
 	let showing = false;
@@ -62,6 +60,7 @@
 		const stick = nearBottom();
 		const li = document.createElement("li");
 		li.className = "chat-msg" + (m.name === myName ? " mine" : "");
+		li.dataset.name = m.name;
 		const grouped = lastShown && lastShown.name === m.name && m.at - lastShown.at < 3 * 60 * 1000;
 		if (!grouped) {
 			const head = document.createElement("div");
@@ -125,32 +124,16 @@
 		};
 	}
 
-	function showNameForm(show) {
-		nameForm.hidden = !show;
-		form.hidden = show;
-		nameBtn.hidden = show || !myName;
-		nameBtn.textContent = `You're ${myName} · change`;
-		if (show) {
-			nameInput.value = myName;
-			if (showing) nameInput.focus();
-		} else if (showing) {
-			input.focus();
-		}
-	}
-
-	nameForm.addEventListener("submit", (e) => {
-		e.preventDefault();
-		const n = nameInput.value.replace(/\s+/g, " ").trim().slice(0, 20);
-		if (!n) {
-			setStatus("Type a name first.", true);
-			return;
-		}
-		myName = n;
-		store.set("roki:chat-name", n);
-		setStatus("");
-		showNameForm(false);
-	});
-	nameBtn.addEventListener("click", () => showNameForm(true));
+	// Your username comes from your account
+	fetch("/account/me", { cache: "no-store" })
+		.then((r) => (r.ok ? r.json() : null))
+		.then((d) => {
+			if (!d || !d.name) return;
+			myName = d.name;
+			me.textContent = `You're ${myName}`;
+			for (const li of log.querySelectorAll(".chat-msg")) if (li.dataset.name === myName) li.classList.add("mine");
+		})
+		.catch(() => {});
 
 	let sending = false;
 	form.addEventListener("submit", async (e) => {
@@ -163,14 +146,14 @@
 			const res = await fetch("/chat/send", {
 				method: "POST",
 				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ name: myName, text }),
+				body: JSON.stringify({ text }),
 			});
 			const data = await res.json().catch(() => ({}));
 			if (res.ok) {
 				input.value = "";
 				setStatus("");
 			} else if (res.status === 401) {
-				setStatus("You're logged out of ROKI. Open your invite link again to chat.", true);
+				setStatus("You're logged out of ROKI. Reload the page and log in again to chat.", true);
 			} else {
 				setStatus(data.error || "Couldn't send that. Try again.", true);
 			}
@@ -191,12 +174,11 @@
 		if (!showing) return;
 		connect();
 		setUnread(0);
-		showNameForm(!myName);
 		requestAnimationFrame(toBottom);
+		input.focus();
 	});
 
 	// Someone who has used the chat before gets the unread badge without opening the page first
-	showNameForm(!myName);
 	if (store.get("roki:chat-used") === "1") connect();
 	if (!page.hidden) document.dispatchEvent(new CustomEvent("roki:page", { detail: "chat" }));
 })();

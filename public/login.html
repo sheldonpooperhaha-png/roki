@@ -13,26 +13,65 @@
 <body class="login-page">
 	<main class="login">
 		<h1 class="wordmark">ROKI</h1>
-		<div class="lock-card">
-			<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-			<p class="lock-title">ROKI is private</p>
-			<p class="lock-text" id="lock-text" role="status">Open your invite link to get in.</p>
-		</div>
+		<form class="lock-card auth-card" id="form" novalidate>
+			<p class="lock-title">Log in to ROKI</p>
+			<label class="auth-label" for="username">Username</label>
+			<input class="auth-input" id="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required>
+			<label class="auth-label" for="password">Password</label>
+			<input class="auth-input" id="password" type="password" autocomplete="current-password" maxlength="128" required>
+			<button class="auth-btn" type="submit" id="go">Log in</button>
+			<p class="lock-text auth-msg" id="msg" role="status"></p>
+			<p class="lock-text auth-alt" id="alt">New here? Open the invite link you were sent to make an account.</p>
+		</form>
 	</main>
-
 	<script>
 		"use strict";
-		// /join/<wrong key> and too many wrong links land here with ?link=bad or ?link=wait
-		const why = new URLSearchParams(location.search).get("link");
-		const text = document.getElementById("lock-text");
-		if (why === "bad") {
-			text.textContent = "That invite link doesn't work. Ask whoever sent it for the new one.";
-			text.classList.add("bad");
-		} else if (why === "wait") {
-			text.textContent = "Too many wrong links. Wait 15 minutes, then open your invite link again.";
-			text.classList.add("bad");
+		const $ = (id) => document.getElementById(id);
+		const msg = $("msg");
+		function say(text, bad) {
+			msg.textContent = text;
+			msg.classList.toggle("bad", !!bad);
 		}
-		if (why) history.replaceState(null, "", "/login");
+		// /join/<wrong key>, too many wrong links and /signup without the invite link land here
+		const q = new URLSearchParams(location.search);
+		if (q.get("link") === "bad") say("That invite link doesn't work. Ask whoever sent it for the new one.", true);
+		else if (q.get("link") === "wait") say("Too many wrong links. Wait 15 minutes, then try again.", true);
+		else if (q.get("need") === "invite") say("To make an account, open the invite link you were sent first.", true);
+		if (q.toString()) history.replaceState(null, "", "/login" + location.hash);
+
+		fetch("/account/state", { cache: "no-store" })
+			.then((r) => r.json())
+			.then((s) => {
+				if (s.user) return location.replace("/" + location.hash);
+				if (s.invited) {
+					const alt = $("alt");
+					alt.textContent = "New here? ";
+					const a = document.createElement("a");
+					a.href = "/signup" + location.hash;
+					a.textContent = "Make an account";
+					alt.append(a);
+				}
+			})
+			.catch(() => {});
+
+		$("form").addEventListener("submit", async (e) => {
+			e.preventDefault();
+			const username = $("username").value.trim();
+			const password = $("password").value;
+			if (!username || !password) return say("Type your username and password.", true);
+			$("go").disabled = true;
+			say("Logging in…");
+			try {
+				const r = await fetch("/account/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password }) });
+				const data = await r.json().catch(() => ({}));
+				if (r.ok) return location.replace("/" + location.hash);
+				say(data.error || "Couldn't log in. Try again.", true);
+				$("password").select();
+			} catch (err) {
+				say("Can't reach ROKI right now. Check your connection.", true);
+			}
+			$("go").disabled = false;
+		});
 	</script>
 </body>
 </html>

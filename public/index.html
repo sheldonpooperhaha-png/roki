@@ -18,6 +18,7 @@
 	<script src="catalog.js" defer></script>
 	<script src="roki.js" defer></script>
 	<script src="chat.js" defer></script>
+	<script src="account.js" defer></script>
 	<script src="settings.js" defer></script>
 	<script src="panic.js" defer></script>
 </head>
@@ -139,19 +140,12 @@
 					<section class="chat-box" aria-label="Chatroom">
 						<div class="chat-head">
 							<span class="chat-online" id="chat-online">Connecting…</span>
-							<button class="chat-name-btn" type="button" id="chat-name-btn" hidden></button>
+							<span class="chat-me" id="chat-me"></span>
 						</div>
 						<ol class="chat-log" id="chat-log" aria-label="Messages" aria-live="polite"></ol>
 						<p class="chat-empty" id="chat-empty" hidden>No messages yet. Say hi!</p>
 						<button class="chat-jump" type="button" id="chat-jump" hidden>New messages ↓</button>
-						<form class="chat-form" id="chat-name-form" hidden>
-							<label class="chat-label" for="chat-name">Pick a name to chat with</label>
-							<div class="chat-row">
-								<input class="chat-input" id="chat-name" maxlength="20" placeholder="Your name" autocomplete="off" spellcheck="false">
-								<button class="chat-send" type="submit">Join</button>
-							</div>
-						</form>
-						<form class="chat-form" id="chat-form" hidden>
+						<form class="chat-form" id="chat-form">
 							<div class="chat-row">
 								<input class="chat-input" id="chat-input" maxlength="300" placeholder="Message everyone" autocomplete="off" aria-label="Message">
 								<button class="chat-send" type="submit" id="chat-send">Send</button>
@@ -159,7 +153,7 @@
 						</form>
 						<p class="chat-status" id="chat-status" role="status"></p>
 					</section>
-					<p class="page-empty chat-note">Only people with your invite link can read this chat. The last 200 messages are kept.</p>
+					<p class="page-empty chat-note">Only people with a ROKI account can read this chat. The last 200 messages are kept.</p>
 				</main>
 
 				<main class="page page-settings" id="settings-main" hidden>
@@ -169,6 +163,21 @@
 						<p class="settings-lead">Change how ROKI looks, hides and behaves. Saved in this browser.</p>
 					</header>
 					<div class="card-grid">
+						<section class="card" aria-labelledby="c-account">
+							<h2 id="c-account">Account</h2>
+							<p class="card-desc">Logged in as <strong id="acct-name">…</strong>. That's your name in Chat.</p>
+							<form class="acct-form" id="acct-form" novalidate>
+								<label class="field-label" for="acct-current">Current password</label>
+								<input class="field-input" id="acct-current" type="password" autocomplete="current-password" maxlength="128">
+								<label class="field-label" for="acct-new">New password</label>
+								<input class="field-input" id="acct-new" type="password" autocomplete="new-password" maxlength="128">
+								<div class="btn-row">
+									<button class="btn btn-primary" type="submit" id="acct-save">Change password</button>
+									<a class="btn" href="/logout" id="acct-logout">Log out</a>
+								</div>
+							</form>
+							<p class="card-hint" id="acct-status" aria-live="polite">Changing your password logs you out everywhere else.</p>
+						</section>
 						<section class="card" aria-labelledby="c-theme">
 							<h2 id="c-theme">Theme</h2>
 							<p class="card-desc">Pick ROKI's colors.</p>
