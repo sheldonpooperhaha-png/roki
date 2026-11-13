@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+	<defs>
+		<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" stop-color="#090d2a"/>
+			<stop offset="0.65" stop-color="#1a2156"/>
+			<stop offset="1" stop-color="#2b2468"/>
+		</linearGradient>
+		<clipPath id="tealHead"><circle cx="152" cy="290" r="29"/></clipPath>
+	</defs>
+	<rect width="512" height="512" fill="url(#sky)"/>
+	<g fill="#dfe3ff">
+		<circle cx="40" cy="214" r="1.6"/><circle cx="96" cy="250" r="1.2"/><circle cx="470" cy="236" r="1.4"/><circle cx="300" cy="222" r="1"/><circle cx="210" cy="232" r="1.3"/>
+	</g>
+	<circle cx="448" cy="276" r="24" fill="#ffecbe" opacity="0.9"/>
+	<g fill="#18205a">
+		<rect x="0" y="330" width="70" height="140"/><rect x="78" y="300" width="64" height="170"/><rect x="236" y="320" width="80" height="150"/><rect x="380" y="306" width="72" height="164"/><rect x="458" y="340" width="60" height="130"/>
+	</g>
+	<g fill="#111745">
+		<rect x="30" y="372" width="78" height="98"/><rect x="190" y="360" width="56" height="110"/><rect x="330" y="380" width="70" height="90"/><rect x="430" y="392" width="82" height="78"/>
+	</g>
+	<g fill="#ffd27a" opacity="0.6">
+		<rect x="44" y="388" width="8" height="11"/><rect x="84" y="410" width="8" height="11"/><rect x="204" y="378" width="8" height="11"/><rect x="226" y="402" width="8" height="11"/><rect x="346" y="396" width="8" height="11"/><rect x="446" y="408" width="8" height="11"/><rect x="486" y="430" width="8" height="11"/>
+	</g>
+	<rect x="0" y="470" width="512" height="42" fill="#262d63"/>
+	<rect x="0" y="470" width="512" height="6" fill="#3d478f"/>
+
+	<g stroke-linecap="round" stroke-linejoin="round" fill="none">
+		<!-- Orange fighter, knocked back -->
+		<g stroke="#0d1022">
+			<path d="M378 384 L404 424 L444 444" stroke-width="27"/>
+			<path d="M372 386 L382 430 L374 464" stroke-width="27"/>
+			<path d="M356 326 L374 292 L392 262" stroke-width="24"/>
+			<path d="M352 318 L378 372" stroke-width="52"/>
+			<path d="M362 330 L398 306 L424 288" stroke-width="24"/>
+		</g>
+		<path d="M372 386 L382 430 L374 464" stroke="#c4501f" stroke-width="21"/>
+		<path d="M356 326 L374 292 L392 262" stroke="#c4501f" stroke-width="18"/>
+		<path d="M352 318 L378 372" stroke="#ff7a45" stroke-width="46"/>
+		<path d="M371 358 L378 372" stroke="#c4501f" stroke-width="46"/>
+		<path d="M378 384 L404 424 L444 444" stroke="#ff7a45" stroke-width="21"/>
+		<path d="M362 330 L398 306 L424 288" stroke="#ff7a45" stroke-width="18"/>
+	</g>
+	<circle cx="394" cy="258" r="16" fill="#c4501f" stroke="#0d1022" stroke-width="5"/>
+	<circle cx="426" cy="286" r="16" fill="#ff7a45" stroke="#0d1022" stroke-width="5"/>
+	<circle cx="338" cy="276" r="31" fill="#ff7a45" stroke="#0d1022" stroke-width="5"/>
+	<g stroke="#0d1022" stroke-width="4.5" stroke-linecap="round">
+		<path d="M322 266 L332 276 M332 266 L322 276"/>
+		<path d="M340 262 L350 272 M350 262 L340 272"/>
+	</g>
+	<ellipse cx="332" cy="292" rx="6" ry="7" fill="#0d1022"/>
+
+	<!-- Teal fighter, punching -->
+	<g stroke-linecap="round" stroke-linejoin="round" fill="none">
+		<g stroke="#0d1022">
+			<path d="M146 402 L118 440 L106 466" stroke-width="27"/>
+			<path d="M152 342 L180 368 L198 342" stroke-width="24"/>
+			<path d="M148 334 L145 396" stroke-width="52"/>
+			<path d="M150 402 L180 436 L172 466" stroke-width="27"/>
+			<path d="M158 338 L208 320 L256 304" stroke-width="24"/>
+			<path d="M172 466 L190 468" stroke-width="22"/>
+			<path d="M106 466 L124 468" stroke-width="22"/>
+		</g>
+		<path d="M146 402 L118 440 L106 466" stroke="#13a38b" stroke-width="21"/>
+		<path d="M106 466 L124 468" stroke="#13a38b" stroke-width="16"/>
+		<path d="M152 342 L180 368 L198 342" stroke="#13a38b" stroke-width="18"/>
+		<path d="M148 334 L145 396" stroke="#2de0c0" stroke-width="46"/>
+		<path d="M146 380 L145 396" stroke="#13a38b" stroke-width="46"/>
+		<path d="M150 402 L180 436 L172 466" stroke="#2de0c0" stroke-width="21"/>
+		<path d="M172 466 L190 468" stroke="#2de0c0" stroke-width="16"/>
+	</g>
+	<circle cx="200" cy="340" r="15" fill="#13a38b" stroke="#0d1022" stroke-width="5"/>
+	<circle cx="152" cy="290" r="31" fill="#2de0c0" stroke="#0d1022" stroke-width="5"/>
+	<rect x="120" y="270" width="70" height="10" fill="#ffffff" clip-path="url(#tealHead)"/>
+	<path d="M123 276 L100 290" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
+	<circle cx="160" cy="288" r="7.5" fill="#ffffff"/><circle cx="163" cy="288" r="3.6" fill="#0d1022"/>
+	<circle cx="176" cy="288" r="7.5" fill="#ffffff"/><circle cx="179" cy="288" r="3.6" fill="#0d1022"/>
+	<path d="M162 305 L176 303" stroke="#0d1022" stroke-width="4" stroke-linecap="round"/>
+	<path d="M158 338 L208 320 L256 304" stroke="#2de0c0" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+	<!-- Impact -->
+	<path d="M282 300 L296 272 L302 294 L326 280 L310 302 L332 312 L306 314 L314 338 L294 320 L278 342 L280 316 L256 318 L276 306 Z" fill="#ffd23f" stroke="#0d1022" stroke-width="4" stroke-linejoin="round"/>
+	<circle cx="262" cy="302" r="16" fill="#2de0c0" stroke="#0d1022" stroke-width="5"/>
+
+	<g font-family="system-ui, 'Segoe UI', Roboto, sans-serif" font-weight="900" text-anchor="middle" transform="rotate(-4 256 120)" stroke-linejoin="round" paint-order="stroke">
+		<text x="256" y="112" font-size="86" fill="#ffffff" stroke="#0d1022" stroke-width="12">WOBBLE</text>
+		<text x="256" y="196" font-size="86" fill="#ffd23f" stroke="#0d1022" stroke-width="12">BRAWL</text>
+	</g>
+</svg>
