@@ -18,6 +18,9 @@
 	const statusEl = $("chat-status");
 	const jump = $("chat-jump");
 	const badge = $("chat-badge");
+	const pinBar = $("chat-pin");
+	const pinTextEl = $("chat-pin-text");
+	const pinBy = $("chat-pin-by");
 
 	const store = {
 		get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -33,6 +36,8 @@
 	let lastLi = null;
 	let catchingUp = true; // the saved history sent when the page first connects isn't "unread"
 	let owners = new Set(); // lowercased usernames with the Owner tag (the server sends them)
+	let amOwner = false; // Owners get Delete and Mute buttons on messages
+	let msgs = []; // what's on screen, so a deleted message can be taken out and the rest redrawn
 	const isOwner = (name) => owners.has(String(name).toLowerCase());
 
 	const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
@@ -80,6 +85,7 @@
 		const li = document.createElement("li");
 		li.className = `chat-msg ${mine ? "mine" : "theirs"} last` + (grouped ? "" : " first") + (live ? " new" : "") + (isOwner(m.name) ? " owner" : "");
 		li.dataset.name = m.name;
+		li.dataset.id = String(m.id);
 		li.style.setProperty("--h", hue(m.name));
 		if (grouped && lastLi) lastLi.classList.remove("last");
 
@@ -114,6 +120,7 @@
 		bubble.title = timeFmt.format(new Date(m.at));
 		body.append(bubble);
 		li.append(avatar, body);
+		if (amOwner) li.append(tools(m, mine));
 		log.append(li);
 		lastShown = m;
 		lastLi = li;
@@ -121,6 +128,49 @@
 		empty.hidden = true;
 		if (stick || mine) toBottom();
 		else jump.hidden = false;
+	}
+
+	function tools(m, mine) {
+		const box = document.createElement("div");
+		box.className = "chat-tools";
+		const del = document.createElement("button");
+		del.type = "button";
+		del.className = "chat-tool";
+		del.dataset.act = "delete";
+		del.dataset.id = String(m.id);
+		del.title = "Delete this message";
+		del.setAttribute("aria-label", "Delete this message");
+		del.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+		box.append(del);
+		if (!mine) {
+			const mute = document.createElement("button");
+			mute.type = "button";
+			mute.className = "chat-tool";
+			mute.dataset.act = "mute";
+			mute.dataset.name = m.name;
+			mute.title = `Mute ${m.name} for 10 minutes`;
+			mute.setAttribute("aria-label", `Mute ${m.name} for 10 minutes`);
+			mute.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10v4h4l5 4V6L7 10zM16 9l5 6M21 9l-5 6"/></svg>';
+			box.append(mute);
+		}
+		return box;
+	}
+
+	// Draws everything again (after a delete, a clear, or learning you're an Owner)
+	function redraw() {
+		log.replaceChildren();
+		lastShown = null;
+		lastLi = null;
+		for (const m of msgs) draw(m, false);
+		empty.hidden = msgs.length > 0;
+		toBottom();
+	}
+
+	function showPin(p) {
+		pinBar.hidden = !p;
+		if (!p) return;
+		pinTextEl.textContent = p.text;
+		pinBy.textContent = `Pinned by ${p.by}`;
 	}
 
 	function setUnread(n) {
@@ -135,6 +185,7 @@
 		.then((d) => {
 			if (!d || !d.name) return;
 			myName = d.name;
+			amOwner = !!d.owner;
 			me.textContent = `You're ${myName} · everyone with a ROKI account can see this`;
 		})
 		.catch(() => {});
@@ -148,7 +199,9 @@
 		source.addEventListener("ready", (e) => {
 			setStatus("");
 			try {
-				owners = new Set((JSON.parse(e.data).owners || []).map((n) => String(n).toLowerCase()));
+				const d = JSON.parse(e.data);
+				owners = new Set((d.owners || []).map((n) => String(n).toLowerCase()));
+				showPin(d.pinned || null);
 			} catch (err) {}
 			catchingUp = lastId === 0;
 			if (!lastId) empty.hidden = log.children.length > 0;
@@ -159,8 +212,25 @@
 			try { m = JSON.parse(e.data); } catch (err) { return; }
 			if (!m || !(m.id > lastId)) return;
 			lastId = m.id;
+			msgs.push(m);
+			if (msgs.length > 320) msgs = msgs.slice(-300);
 			draw(m, !catchingUp);
 			if (!catchingUp && !showing && m.name !== myName) setUnread(unread + 1);
+		});
+		source.addEventListener("delete", (e) => {
+			try {
+				const id = JSON.parse(e.data).id;
+				const before = msgs.length;
+				msgs = msgs.filter((m) => m.id !== id);
+				if (msgs.length !== before) redraw();
+			} catch (err) {}
+		});
+		source.addEventListener("clear", () => {
+			msgs = [];
+			redraw();
+		});
+		source.addEventListener("pinned", (e) => {
+			try { showPin(JSON.parse(e.data)); } catch (err) {}
 		});
 		source.addEventListener("online", (e) => {
 			try {
@@ -218,6 +288,27 @@
 	});
 
 	scroller.addEventListener("scroll", () => { if (nearBottom()) jump.hidden = true; });
+
+	// Owner buttons on messages
+	log.addEventListener("click", async (e) => {
+		const b = e.target.closest("button.chat-tool");
+		if (!b) return;
+		const act = b.dataset.act;
+		b.disabled = true;
+		try {
+			const r = await fetch(act === "delete" ? "/admin/chat/delete" : "/admin/chat/mute", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify(act === "delete" ? { id: Number(b.dataset.id) } : { name: b.dataset.name, time: "10m" }),
+			});
+			const d = await r.json().catch(() => ({}));
+			if (!r.ok) setStatus(d.error || "That didn't work.", true);
+			else if (act === "mute") setStatus(`${b.dataset.name} is muted for 10 minutes.`);
+		} catch (err) {
+			setStatus("Can't reach ROKI right now.", true);
+		}
+		b.disabled = false;
+	});
 	jump.addEventListener("click", toBottom);
 
 	document.addEventListener("roki:page", (e) => {

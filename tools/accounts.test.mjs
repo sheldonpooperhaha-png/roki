@@ -25,7 +25,7 @@ test("signs up, refuses taken names in any case, and logs in", async () => {
 	assert.equal((await acc.signup("Sam", "hunter22")).ok, true);
 	assert.match((await acc.signup("sam", "another1")).error, /taken/);
 	const ok = await acc.login("SAM", "hunter22");
-	assert.deepEqual(ok, { ok: true, user: { key: "sam", name: "Sam" } });
+	assert.deepEqual(ok, { ok: true, user: { key: "sam", name: "Sam", role: null } });
 	assert.equal((await acc.login("Sam", "wrong-pass")).error, "Wrong username or password.");
 	assert.equal((await acc.login("nobody", "hunter22")).error, "Wrong username or password.", "same answer for a missing account");
 });
@@ -111,4 +111,42 @@ test("only the accounts tool gives the Owner tag, and it survives a restart", as
 	assert.equal(acc.setRole("youssef", null), true);
 	assert.deepEqual(acc.owners(), []);
 	assert.equal(acc.setRole("nobody", "owner"), false);
+});
+
+test("a banned account can't log in and its sessions stop working; unbanning lets it back", async () => {
+	const acc = fresh();
+	const { user } = await acc.signup("Spammer", "spam-pass");
+	const c = cookieValue(acc.sessionCookie(user));
+	assert.ok(acc.userFromCookie(c));
+	assert.equal(acc.setBanned("spammer", true), true);
+	assert.equal(acc.userFromCookie(c), null);
+	assert.match((await acc.login("Spammer", "spam-pass")).error, /banned/);
+	assert.equal(acc.list()[0].banned, true);
+	acc.setBanned("spammer", false);
+	assert.equal((await acc.login("Spammer", "spam-pass")).ok, true);
+});
+
+test("a change from the accounts tool isn't lost when the site saves right after it", async () => {
+	const file = join(mkdtempSync(join(tmpdir(), "roki-race-")), "accounts.json");
+	const t = Date.now();
+	const site = fresh({ file, now: () => t });
+	await site.signup("Youssef", "owner-pass");
+	site.owners(); // the site just checked the file, so a plain check would wait 2 seconds
+	const tool = fresh({ file });
+	assert.equal(tool.setRole("youssef", "owner"), true);
+	await site.signup("Alex", "alex-pass"); // saves right away
+	site.setBanned("alex", true);
+	assert.deepEqual(fresh({ file }).owners(), ["Youssef"], "the Owner tag survived");
+	assert.equal(fresh({ file }).count(), 2);
+});
+
+test("remembers when each account was last seen", async () => {
+	let t = 1_000_000;
+	const acc = fresh({ now: () => t });
+	const { user } = await acc.signup("Seen", "seen-pass");
+	const c = cookieValue(acc.sessionCookie(user));
+	assert.equal(acc.list()[0].seen, null);
+	t += 5000;
+	acc.userFromCookie(c);
+	assert.equal(acc.list()[0].seen, t);
 });

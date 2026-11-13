@@ -19,6 +19,8 @@
 	<script src="roki.js" defer></script>
 	<script src="chat.js" defer></script>
 	<script src="account.js" defer></script>
+	<script src="admin.js" defer></script>
+	<script src="announce.js" defer></script>
 	<script src="settings.js" defer></script>
 	<script src="panic.js" defer></script>
 </head>
@@ -66,6 +68,7 @@
 						<button class="topnav-link" type="button" data-page="media" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M10 8.5v5l4-2.5z" fill="currentColor"/></svg><span>Media</span></button>
 						<button class="topnav-link" type="button" data-page="chat" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z"/><path d="M9 11h.01M12 11h.01M15 11h.01"/></svg><span>Chat</span><b class="nav-badge" id="chat-badge" hidden></b></button>
 						<button class="topnav-link" type="button" data-page="settings" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Settings</span></button>
+						<button class="topnav-link" type="button" data-page="admin" aria-pressed="false" id="admin-nav" hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span>Admin</span></button>
 					</div>
 					<div class="topnav-end">
 						<span class="topnav-clock" id="clock" aria-live="off"></span>
@@ -75,6 +78,14 @@
 				</nav>
 
 				<main class="page page-home" id="home-main">
+					<div class="announce" id="announce" role="status" hidden>
+						<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+						<div class="announce-body">
+							<p class="announce-text" id="announce-text"></p>
+							<p class="announce-by" id="announce-by"></p>
+						</div>
+						<button class="announce-close" type="button" id="announce-close" aria-label="Hide this announcement"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+					</div>
 					<h1 class="hero-title">ROKI</h1>
 					<p class="hero-sub" id="hero-date">&nbsp;</p>
 					<form class="hero-search" id="home-form" role="search" autocomplete="off">
@@ -145,6 +156,11 @@
 							</div>
 							<span class="chat-online" id="chat-online">Connecting…</span>
 						</header>
+						<div class="chat-pin" id="chat-pin" hidden>
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5M9 3h6l-1 7 4 3H6l4-3z"/></svg>
+							<p class="chat-pin-text" id="chat-pin-text"></p>
+							<span class="chat-pin-by" id="chat-pin-by"></span>
+						</div>
 						<div class="chat-scroll" id="chat-scroll">
 							<div class="chat-empty" id="chat-empty" hidden>
 								<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z"/><path d="M9 11h.01M12 11h.01M15 11h.01"/></svg>
@@ -163,6 +179,51 @@
 							<p class="chat-status" id="chat-status" role="status"></p>
 						</form>
 					</section>
+				</main>
+
+				<main class="page page-admin" id="admin-main" hidden>
+					<header class="settings-header">
+						<p class="eyebrow">Owner only</p>
+						<h1 class="settings-title">Admin</h1>
+						<p class="settings-lead">Run ROKI: the chat, everyone's accounts and the server. Only Owner accounts can see this page.</p>
+					</header>
+					<section class="admin-stats" id="admin-stats" aria-label="Stats"></section>
+					<div class="admin-grid">
+						<section class="card admin-wide" aria-labelledby="a-acc">
+							<h2 id="a-acc">Accounts</h2>
+							<p class="card-desc">Everyone with a ROKI account. Online people are at the top.</p>
+							<div class="admin-table-wrap">
+								<table class="admin-table">
+									<thead><tr><th>Name</th><th>Joined</th><th>Last seen</th><th>Actions</th></tr></thead>
+									<tbody id="admin-accounts"></tbody>
+								</table>
+							</div>
+							<p class="card-hint" id="admin-acc-status" aria-live="polite"></p>
+						</section>
+						<section class="card" aria-labelledby="a-pin">
+							<h2 id="a-pin">Announcement</h2>
+							<p class="card-desc">Pinned at the top of Chat and shown as a banner on everyone's home page.</p>
+							<textarea class="field-input admin-textarea" id="admin-pin-text" maxlength="300" rows="3" placeholder="Type an announcement…" aria-label="Announcement"></textarea>
+							<div class="btn-row">
+								<button class="btn btn-primary" type="button" id="admin-pin-save">Pin it</button>
+								<button class="btn" type="button" id="admin-pin-clear">Remove</button>
+							</div>
+							<p class="card-hint" id="admin-pin-status" aria-live="polite"></p>
+						</section>
+						<section class="card" aria-labelledby="a-chat">
+							<h2 id="a-chat">Chat</h2>
+							<p class="card-desc">The latest messages. Delete one, or mute whoever sent it for 10 minutes.</p>
+							<ol class="admin-msgs" id="admin-msgs"></ol>
+							<div class="btn-row">
+								<button class="btn btn-danger" type="button" id="admin-clear">Clear the whole chat</button>
+							</div>
+							<p class="card-hint" id="admin-chat-status" aria-live="polite"></p>
+						</section>
+						<section class="card admin-wide" aria-labelledby="a-log">
+							<h2 id="a-log">Recent admin actions</h2>
+							<ol class="admin-log" id="admin-log"></ol>
+						</section>
+					</div>
 				</main>
 
 				<main class="page page-settings" id="settings-main" hidden>

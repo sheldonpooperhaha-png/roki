@@ -305,11 +305,11 @@ fastify.get("/chat/stream", (req, reply) => {
 		Connection: "keep-alive",
 	});
 	const after = Number(req.headers["last-event-id"]) || 0;
-	let out = "retry: 3000\n\n" + sseEvent("ready", { after, owners: accounts.owners() });
+	let out = "retry: 3000\n\n" + sseEvent("ready", { after, owners: accounts.owners(), pinned: chat.pinned() });
 	for (const m of chat.history(after)) out += sseEvent("msg", m, m.id);
 	out += sseEvent("live", {}); // everything after this is new
 	res.write(out);
-	const stop = chat.subscribe((e) => res.write(e));
+	const stop = chat.subscribe((e) => res.write(e), req.user.name);
 	// A comment every 15 s keeps proxies in front of ROKI (CloudFront, Cloudflare) from closing a quiet stream
 	const beat = setInterval(() => res.write(": ping\n\n"), 15_000);
 	req.raw.on("close", () => {
@@ -326,6 +326,146 @@ fastify.post("/chat/send", { bodyLimit: 4096 }, async (req, reply) => {
 	const r = chat.post(req.user.key, req.user.name, bodyOf(req).text);
 	if (!r.ok) return reply.code(r.status).send({ error: r.error });
 	return { ok: true, id: r.message.id };
+});
+
+// The pinned announcement, for the banner on everyone's home page
+fastify.get("/announcement", (req, reply) => {
+	reply.header("Cache-Control", "no-store");
+	return { pinned: chat.pinned() };
+});
+
+/* ---------- Admin page (Owner accounts only; every route checks on the server) ---------- */
+const adminLogFile = join(dataDir, "admin-log.json");
+let adminLog = [];
+try {
+	adminLog = JSON.parse(readFileSync(adminLogFile, "utf8")).filter((x) => x && typeof x.what === "string");
+} catch {
+	// no log yet
+}
+function logAdmin(req, what) {
+	adminLog.push({ at: Date.now(), by: req.user.name, what });
+	adminLog = adminLog.slice(-100);
+	try {
+		writeFileSync(adminLogFile, JSON.stringify(adminLog));
+	} catch {
+		// the log is a convenience; the action already happened
+	}
+}
+async function ownerOnly(req, reply) {
+	reply.header("Cache-Control", "no-store");
+	if (!req.user || req.user.role !== "owner") return reply.code(403).send({ error: "Only the Owner can do that." });
+	if (req.method === "POST" && !isJson(req)) return reply.code(415).send({ error: "Send it as JSON." });
+}
+const admin = (path, handler) => fastify.post(path, { preHandler: ownerOnly, bodyLimit: 4096 }, handler);
+const MUTE_TIMES = { "10m": 10 * 60 * 1000, "1h": 60 * 60 * 1000, "1d": 24 * 60 * 60 * 1000, forever: null };
+const MUTE_WORDS = { "10m": "10 minutes", "1h": "1 hour", "1d": "1 day", forever: "until unmuted" };
+// The account an admin action is about (refusing the owner's own account where that would lock them out)
+function target(req, reply, { notSelf } = {}) {
+	const name = typeof bodyOf(req).name === "string" ? bodyOf(req).name.trim() : "";
+	const acct = accounts.list().find((a) => a.name.toLowerCase() === name.toLowerCase());
+	if (!acct) {
+		reply.code(404).send({ error: "No account with that username." });
+		return null;
+	}
+	if (notSelf && acct.name.toLowerCase() === req.user.key) {
+		reply.code(400).send({ error: notSelf });
+		return null;
+	}
+	return acct;
+}
+
+fastify.get("/admin/state", { preHandler: ownerOnly }, async (req) => {
+	const online = new Set(chat.onlineNames().map((n) => n.toLowerCase()));
+	const muted = new Map(chat.mutes().map((m) => [m.key, m.until]));
+	const mem = process.memoryUsage();
+	return {
+		me: req.user.name,
+		stats: {
+			onlineNow: online.size,
+			accounts: accounts.count(),
+			...chat.stats(),
+			uptimeSec: Math.round(process.uptime()),
+			memoryMB: Math.round(mem.rss / 1048576),
+		},
+		accounts: accounts
+			.list()
+			.map((a) => {
+				const key = a.name.toLowerCase();
+				return { ...a, online: online.has(key), muted: muted.has(key), mutedUntil: muted.get(key) ?? null };
+			})
+			.sort((x, y) => Number(y.online) - Number(x.online) || (y.seen || y.created) - (x.seen || x.created)),
+		pinned: chat.pinned(),
+		messages: chat.history().slice(-40),
+		log: adminLog.slice(-30).reverse(),
+	};
+});
+
+admin("/admin/chat/delete", async (req, reply) => {
+	const id = Number(bodyOf(req).id);
+	const m = chat.history().find((x) => x.id === id);
+	if (!m || !chat.remove(id)) return reply.code(404).send({ error: "That message is already gone." });
+	logAdmin(req, `deleted a message from ${m.name}`);
+	return { ok: true };
+});
+admin("/admin/chat/clear", async (req) => {
+	chat.clear();
+	logAdmin(req, "cleared the chat");
+	return { ok: true };
+});
+admin("/admin/chat/mute", async (req, reply) => {
+	const acct = target(req, reply, { notSelf: "You can't mute yourself." });
+	if (!acct) return;
+	const time = bodyOf(req).time;
+	if (!(time in MUTE_TIMES)) return reply.code(400).send({ error: "Pick how long to mute them." });
+	chat.mute(acct.name.toLowerCase(), acct.name, MUTE_TIMES[time]);
+	logAdmin(req, `muted ${acct.name} (${MUTE_WORDS[time]})`);
+	return { ok: true };
+});
+admin("/admin/chat/unmute", async (req, reply) => {
+	const acct = target(req, reply);
+	if (!acct) return;
+	chat.unmute(acct.name.toLowerCase());
+	logAdmin(req, `unmuted ${acct.name}`);
+	return { ok: true };
+});
+admin("/admin/pin", async (req, reply) => {
+	const text = bodyOf(req).text;
+	const r = chat.setPinned(typeof text === "string" && text.trim() ? text : null, req.user.name);
+	if (!r.ok) return reply.code(400).send({ error: r.error });
+	logAdmin(req, r.pinned ? "pinned an announcement" : "removed the announcement");
+	return { ok: true };
+});
+admin("/admin/account/reset", async (req, reply) => {
+	const acct = target(req, reply);
+	if (!acct) return;
+	const r = await accounts.resetPassword(acct.name, bodyOf(req).password);
+	if (!r.ok) return reply.code(400).send({ error: r.error });
+	logAdmin(req, `reset ${acct.name}'s password`);
+	return { ok: true };
+});
+admin("/admin/account/delete", async (req, reply) => {
+	const acct = target(req, reply, { notSelf: "You can't delete your own account here." });
+	if (!acct) return;
+	accounts.remove(acct.name);
+	chat.unmute(acct.name.toLowerCase());
+	logAdmin(req, `deleted ${acct.name}'s account`);
+	return { ok: true };
+});
+admin("/admin/account/ban", async (req, reply) => {
+	const banned = bodyOf(req).banned === true;
+	const acct = target(req, reply, { notSelf: banned ? "You can't ban yourself." : false });
+	if (!acct) return;
+	accounts.setBanned(acct.name, banned);
+	logAdmin(req, `${banned ? "banned" : "unbanned"} ${acct.name}`);
+	return { ok: true };
+});
+admin("/admin/account/owner", async (req, reply) => {
+	const owner = bodyOf(req).owner === true;
+	const acct = target(req, reply, { notSelf: owner ? false : "You can't take away your own Owner tag here." });
+	if (!acct) return;
+	accounts.setRole(acct.name, owner ? "owner" : null);
+	logAdmin(req, `${owner ? "made" : "removed"} ${acct.name} ${owner ? "an Owner" : "as Owner"}`);
+	return { ok: true };
 });
 
 // The Games page asks for this list (see src/games.js). It's locked like everything else.

@@ -118,6 +118,7 @@
 	const GRID = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>';
 	const SCREEN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
 	const CHAT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z"/></svg>';
+	const SHIELD = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z"/></svg>';
 	const SLIDERS = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>';
 	const CLOSE = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 	const PREFIX = "/scramjet/";
@@ -152,12 +153,12 @@
 	/* ---------- Tabs ---------- */
 	// Each tab shows one of ROKI's own pages ("home", "games", "apps", "media", "chat", "settings"),
 	// "web" (a site through the proxy) or "game" (a game from public/games).
-	const PAGES = { home: "New Tab", games: "Games", apps: "Apps", media: "Media", chat: "Chat", settings: "Settings" };
-	const PAGE_ICONS = { home: SPARK, games: PAD, apps: GRID, media: SCREEN, chat: CHAT, settings: SLIDERS };
+	const PAGES = { home: "New Tab", games: "Games", apps: "Apps", media: "Media", chat: "Chat", settings: "Settings", admin: "Admin" };
+	const PAGE_ICONS = { home: SPARK, games: PAD, apps: GRID, media: SCREEN, chat: CHAT, settings: SLIDERS, admin: SHIELD };
 	const tabsEl = $("tabs");
 	const viewport = $("viewport");
 	const home = $("home");
-	const pageEls ={ home: $("home-main"), games: $("games-main"), apps: $("apps-main"), media: $("media-main"), chat: $("chat-main"), settings: $("settings-main") };
+	const pageEls ={ home: $("home-main"), games: $("games-main"), apps: $("apps-main"), media: $("media-main"), chat: $("chat-main"), settings: $("settings-main"), admin: $("admin-main") };
 	const navLinks = [...document.querySelectorAll(".topnav-link")];
 	const addr = $("addr");
 	const q = $("q");

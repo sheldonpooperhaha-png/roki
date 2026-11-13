@@ -83,3 +83,33 @@ test("saves history to a file and picks it up again after a restart", async () =
 	assert.deepEqual(two.history().map((m) => m.text), ["first", "second"]);
 	assert.equal(two.post("c", "Kai", "third").message.id, 3, "ids keep counting up");
 });
+
+test("owner tools: delete, clear, mute (timed and until unmuted), pin, stats", () => {
+	let t = 1_000_000;
+	const chat = createChat({ now: () => t, gapMs: 0 });
+	const got = [];
+	chat.subscribe((e) => got.push(e), "Sam");
+	assert.deepEqual(chat.onlineNames(), ["Sam"]);
+	const a = chat.post("sam", "Sam", "one").message;
+	chat.post("alex", "Alex", "two");
+	assert.equal(chat.remove(a.id), true);
+	assert.deepEqual(chat.history().map((m) => m.text), ["two"]);
+	assert.ok(got.some((e) => e.startsWith("event: delete")));
+	chat.mute("alex", "Alex", 10 * 60 * 1000);
+	assert.match(chat.post("alex", "Alex", "hey").error, /muted for 10 more minutes/);
+	t += 11 * 60 * 1000;
+	assert.equal(chat.post("alex", "Alex", "back").ok, true, "a timed mute runs out");
+	chat.mute("alex", "Alex", null);
+	assert.match(chat.post("alex", "Alex", "hey").error, /muted in Chat/);
+	assert.deepEqual(chat.mutes(), [{ key: "alex", name: "Alex", until: null }]);
+	chat.unmute("alex");
+	assert.equal(chat.post("alex", "Alex", "free").ok, true);
+	assert.equal(chat.setPinned("Be nice!", "Youssef").pinned.text, "Be nice!");
+	assert.equal(chat.pinned().by, "Youssef");
+	chat.setPinned(null);
+	assert.equal(chat.pinned(), null);
+	assert.equal(chat.stats().last24h, 4);
+	chat.clear();
+	assert.deepEqual(chat.history(), []);
+	assert.ok(got.some((e) => e.startsWith("event: clear")));
+});

@@ -64,7 +64,9 @@ export function createAccounts({ file = null, secret, now = Date.now, maxAccount
 			const next = {};
 			for (const [k, u] of Object.entries(data.users || {})) {
 				if (u && validName(u.name) && k === u.name.toLowerCase() && u.salt && u.hash) {
-					next[k] = { ...u, v: Number(u.v) || 1, role: u.role === "owner" ? "owner" : undefined };
+					// Keep a newer "last seen" this process has in memory but hasn't saved yet
+					const seen = Math.max(Number(u.seen) || 0, users[k]?.seen || 0) || undefined;
+					next[k] = { ...u, seen, v: Number(u.v) || 1, role: u.role === "owner" ? "owner" : undefined, banned: u.banned === true || undefined };
 				}
 			}
 			users = next;
@@ -73,14 +75,40 @@ export function createAccounts({ file = null, secret, now = Date.now, maxAccount
 		}
 	}
 
-	function maybeReload() {
-		if (!file || now() - lastCheck < 2000) return;
-		lastCheck = now();
+	// Re-reads the file right now if something else (the accounts tool) changed it. Every change calls this
+	// first, so a save never writes over the other program's change.
+	function sync() {
+		if (!file) return;
 		try {
 			if (statSync(file).mtimeMs !== seenMtime) load();
 		} catch {
 			// file not made yet
 		}
+	}
+
+	// For reads, which happen on every request: checks the file at most every 2 seconds
+	function maybeReload() {
+		if (!file || now() - lastCheck < 2000) return;
+		lastCheck = now();
+		sync();
+	}
+
+	// "Last seen" changes on every visit, so it's saved at most every half minute
+	let seenTimer = null;
+	function touch(u) {
+		if (u.seen && now() - u.seen < 60_000) return;
+		u.seen = now();
+		if (!file || seenTimer) return;
+		seenTimer = setTimeout(() => {
+			seenTimer = null;
+			try {
+				sync();
+				save();
+			} catch {
+				// tried again on the next visit
+			}
+		}, 30_000);
+		seenTimer.unref?.();
 	}
 
 	function save() {
@@ -110,13 +138,29 @@ export function createAccounts({ file = null, secret, now = Date.now, maxAccount
 	return {
 		reload: load,
 		count: () => Object.keys(users).length,
-		list: () => Object.values(users).map((u) => ({ name: u.name, created: u.created, role: u.role || null })),
+		list: () =>
+			Object.values(users).map((u) => ({ name: u.name, created: u.created, seen: u.seen || null, role: u.role || null, banned: !!u.banned })),
+		// A banned account can't log in, and its sessions stop working right away
+		setBanned(name, banned) {
+			sync();
+			const u = users[String(name).toLowerCase()];
+			if (!u) return false;
+			if (banned) {
+				u.banned = true;
+				u.v++;
+			} else {
+				delete u.banned;
+			}
+			save();
+			return true;
+		},
 		// Usernames with the Owner tag (only the server's accounts tool can give it)
 		owners() {
 			maybeReload();
 			return Object.values(users).filter((u) => u.role === "owner").map((u) => u.name);
 		},
 		setRole(name, role) {
+			sync();
 			const u = users[String(name).toLowerCase()];
 			if (!u) return false;
 			if (role === "owner") u.role = "owner";
@@ -134,6 +178,7 @@ export function createAccounts({ file = null, secret, now = Date.now, maxAccount
 			if (users[key]) return { ok: false, error: "That username is taken. Try another." };
 			if (Object.keys(users).length >= maxAccounts) return { ok: false, error: "ROKI has as many accounts as it can hold." };
 			const h = await hashPassword(pw);
+			sync();
 			if (users[key]) return { ok: false, error: "That username is taken. Try another." };
 			users[key] = { name, ...h, v: 1, created: now() };
 			save();
@@ -155,7 +200,8 @@ export function createAccounts({ file = null, secret, now = Date.now, maxAccount
 				return { ok: false, error: "Wrong username or password." };
 			}
 			fails.delete(key);
-			return { ok: true, user: { key, name: u.name } };
+			if (u.banned) return { ok: false, error: "This account is banned from ROKI." };
+			return { ok: true, user: { key, name: u.name, role: u.role || null } };
 		},
 
 		async changePassword(key, oldPw, newPw) {
@@ -165,22 +211,33 @@ export function createAccounts({ file = null, secret, now = Date.now, maxAccount
 			if (!(await checkPassword(String(oldPw || ""), u))) return { ok: false, error: "Your current password isn't right." };
 			const problem = passwordProblem(newPw, u.name);
 			if (problem) return { ok: false, error: problem };
-			Object.assign(u, await hashPassword(newPw), { v: u.v + 1 });
+			const h = await hashPassword(newPw);
+			sync();
+			const cur = users[key];
+			if (!cur) return { ok: false, error: "That account doesn't exist anymore." };
+			Object.assign(cur, h, { v: cur.v + 1 });
 			save();
-			return { ok: true, user: { key, name: u.name } };
+			return { ok: true, user: { key, name: cur.name } };
 		},
 
 		// For the owner's accounts tool: set a new password without the old one, or remove an account
 		async resetPassword(name, newPw) {
-			const u = users[String(name).toLowerCase()];
+			sync();
+			const key = String(name).toLowerCase();
+			const u = users[key];
 			if (!u) return { ok: false, error: "No account with that username." };
 			const problem = passwordProblem(newPw, u.name);
 			if (problem) return { ok: false, error: problem };
-			Object.assign(u, await hashPassword(newPw), { v: u.v + 1 });
+			const h = await hashPassword(newPw);
+			sync();
+			const cur = users[key];
+			if (!cur) return { ok: false, error: "No account with that username." };
+			Object.assign(cur, h, { v: cur.v + 1 });
 			save();
 			return { ok: true };
 		},
 		remove(name) {
+			sync();
 			const key = String(name).toLowerCase();
 			if (!users[key]) return false;
 			delete users[key];
@@ -215,8 +272,9 @@ export function createAccounts({ file = null, secret, now = Date.now, maxAccount
 				return null;
 			}
 			const u = users[key];
-			if (!u || String(u.v) !== parts[1]) return null;
+			if (!u || u.banned || String(u.v) !== parts[1]) return null;
 			if (now() / 1000 - Number(parts[2]) > SESSION_DAYS * 86400) return null;
+			touch(u);
 			return { key, name: u.name, role: u.role || null };
 		},
 	};

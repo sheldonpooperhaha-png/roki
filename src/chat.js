@@ -1,4 +1,4 @@
-// ROKI's chatroom: one room for everyone with the invite link. Keeps the last 200 messages (saved to a file
+// ROKI's chatroom: one room for everyone with a ROKI account. Keeps the last 200 messages (saved to a file
 // so a restart doesn't wipe them) and pushes new ones to every open Chat page as they're sent.
 // Plain text only: names and messages are cleaned here and shown with textContent on the page.
 import { readFileSync, renameSync, writeFileSync, mkdirSync } from "node:fs";
@@ -46,10 +46,15 @@ export function createChat({
 } = {}) {
 	let messages = [];
 	let nextId = 1;
-	const listeners = new Set();
+	let mutes = {}; // account key -> { name, until (ms, or null for "until unmuted") }
+	let pinned = null; // { text, by, at }
+	let recent = []; // when messages were sent in the last 24 hours (for the admin stats)
+	let total = 0;
+	const listeners = new Map(); // fn -> account name (or null)
 	const senders = new Map(); // who -> recent send times
 	let roomSends = [];
 	let saveTimer = null;
+	const DAY = 24 * 60 * 60 * 1000;
 
 	if (file) {
 		try {
@@ -60,6 +65,10 @@ export function createChat({
 					.slice(-max);
 			}
 			nextId = Math.max(Number(saved.nextId) || 0, ...messages.map((m) => m.id + 1), 1);
+			if (saved.mutes && typeof saved.mutes === "object") mutes = saved.mutes;
+			if (saved.pinned && typeof saved.pinned.text === "string") pinned = saved.pinned;
+			if (Array.isArray(saved.recent)) recent = saved.recent.filter(Number.isFinite);
+			total = Number(saved.total) || messages.length;
 		} catch {
 			// no history yet
 		}
@@ -72,7 +81,7 @@ export function createChat({
 			try {
 				mkdirSync(dirname(file), { recursive: true });
 				const tmp = file + ".tmp";
-				writeFileSync(tmp, JSON.stringify({ nextId, messages }));
+				writeFileSync(tmp, JSON.stringify({ nextId, messages, mutes, pinned, recent, total }));
 				renameSync(tmp, file);
 			} catch (e) {
 				console.warn("Couldn't save the chat:", e.message);
@@ -82,7 +91,7 @@ export function createChat({
 	}
 
 	function broadcast(text) {
-		for (const fn of listeners) {
+		for (const fn of listeners.keys()) {
 			try {
 				fn(text);
 			} catch {
@@ -93,6 +102,17 @@ export function createChat({
 
 	const onlineEvent = () => sseEvent("online", { n: listeners.size });
 
+	function activeMute(who) {
+		const m = mutes[who];
+		if (!m) return null;
+		if (m.until !== null && m.until <= now()) {
+			delete mutes[who];
+			save();
+			return null;
+		}
+		return m;
+	}
+
 	return {
 		// Messages after `afterId` (all of them when it's 0)
 		history(afterId = 0) {
@@ -102,6 +122,15 @@ export function createChat({
 		post(who, name, text) {
 			const n = cleanName(name);
 			if (!n) return { ok: false, status: 400, error: "Pick a name first." };
+			const muted = activeMute(who);
+			if (muted) {
+				const left = muted.until === null ? null : Math.ceil((muted.until - now()) / 60000);
+				return {
+					ok: false,
+					status: 403,
+					error: left === null ? "You're muted in Chat." : `You're muted for ${left} more minute${left === 1 ? "" : "s"}.`,
+				};
+			}
 			const t = cleanText(text);
 			if (t === false) return { ok: false, status: 400, error: `Messages can be up to ${MAX_TEXT} characters.` };
 			if (!t) return { ok: false, status: 400, error: "Type a message first." };
@@ -124,19 +153,69 @@ export function createChat({
 			const message = { id: nextId++, name: n, text: t, at };
 			messages.push(message);
 			if (messages.length > max) messages = messages.slice(-max);
+			recent = recent.filter((x) => at - x < DAY);
+			recent.push(at);
+			total++;
 			save();
 			broadcast(sseEvent("msg", message, message.id));
 			return { ok: true, message };
 		},
 
+		/* ---------- Owner tools ---------- */
+		remove(id) {
+			const i = messages.findIndex((m) => m.id === id);
+			if (i < 0) return false;
+			messages.splice(i, 1);
+			save();
+			broadcast(sseEvent("delete", { id }));
+			return true;
+		},
+		clear() {
+			messages = [];
+			save();
+			broadcast(sseEvent("clear", {}));
+		},
+		// ms: how long, or null for "until unmuted"
+		mute(who, name, ms) {
+			mutes[who] = { name, until: ms === null ? null : now() + ms };
+			save();
+		},
+		unmute(who) {
+			const had = !!mutes[who];
+			delete mutes[who];
+			save();
+			return had;
+		},
+		muteOf: (who) => activeMute(who),
+		mutes() {
+			for (const who of Object.keys(mutes)) activeMute(who);
+			return Object.entries(mutes).map(([key, m]) => ({ key, name: m.name, until: m.until }));
+		},
+		setPinned(text, by) {
+			const t = text === null ? null : cleanText(text);
+			if (t === false) return { ok: false, error: `Announcements can be up to ${MAX_TEXT} characters.` };
+			pinned = t ? { text: t, by, at: now() } : null;
+			save();
+			broadcast(sseEvent("pinned", pinned));
+			return { ok: true, pinned };
+		},
+		pinned: () => pinned,
+		stats() {
+			const at = now();
+			recent = recent.filter((x) => at - x < DAY);
+			return { last24h: recent.length, total, kept: messages.length };
+		},
+
 		// fn gets each new event as server-sent-event text; returns a function that stops it
-		subscribe(fn) {
-			listeners.add(fn);
+		subscribe(fn, name = null) {
+			listeners.set(fn, name);
 			broadcast(onlineEvent());
 			return () => {
 				if (listeners.delete(fn)) broadcast(onlineEvent());
 			};
 		},
+		// Account names with Chat open right now
+		onlineNames: () => [...new Set([...listeners.values()].filter(Boolean))],
 
 		online: () => listeners.size,
 		onlineEvent,
