@@ -599,12 +599,24 @@
 	appPage(catalog.apps, "apps-grid", "apps-search", "apps-nomatch", "apps");
 	appPage(catalog.media, "media-grid", "media-search", "media-nomatch", "video and music sites");
 
-	// Top bar: ROKI goes home; the links open their page in this tab (again to go back home)
+	// Dock: ROKI goes home; the links open their page in this tab (again to go back home)
 	$("nav-home").addEventListener("click", () => goHome(active));
 	navLinks.forEach((b) => b.addEventListener("click", () => {
 		if (active.view === b.dataset.page) goHome(active);
 		else setPage(active, b.dataset.page);
 	}));
+
+	// The big Games, Apps, Media and Chat buttons on the home page, each with a live count under its name
+	const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+	const sectionNote = (page, text) => { const el = $("sec-" + page); if (el) el.textContent = text; };
+	document.querySelectorAll(".section-btn").forEach((b) => b.addEventListener("click", () => setPage(active, b.dataset.page)));
+	sectionNote("apps", plural(catalog.apps.length, "app", "apps"));
+	sectionNote("media", plural(catalog.media.length, "site", "sites"));
+	// chat.js sends the number of people in Chat (null while it's reconnecting)
+	document.addEventListener("roki:online", (e) => {
+		const n = e.detail;
+		sectionNote("chat", typeof n !== "number" ? "Talk with friends" : n === 1 ? "Just you" : `${n} online`);
+	});
 
 	/* ---------- Games list (from public/games via /games/list.json) ---------- */
 	const gameGrid = $("game-grid");
@@ -670,6 +682,7 @@
 		gamesSearch.placeholder = `Search through ${n} game${n === 1 ? "" : "s"}`;
 		gamesSort.options[0].textContent = `A to Z (${n})`;
 		gamesSort.options[1].textContent = `Z to A (${n})`;
+		sectionNote("games", n === 0 ? "No games yet" : plural(n, "game", "games"));
 		showGames();
 	}
 	gamesSearch.addEventListener("input", showGames);
@@ -689,6 +702,7 @@
 			} catch (e) {
 				gamesStatus.textContent = "Couldn't load your games. Reload ROKI and try again.";
 				gamesStatus.hidden = false;
+				sectionNote("games", "Play games");
 				showGames(); // "Play online" still works
 			} finally {
 				gamesLoading = null;
@@ -696,6 +710,7 @@
 		})();
 		return gamesLoading;
 	}
+	loadGames(); // right away, for the home page's Games count
 
 
 	/* ---------- Clock (dock) and date (home page) ---------- */

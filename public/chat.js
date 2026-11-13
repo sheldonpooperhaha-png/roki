@@ -237,11 +237,13 @@
 				const n = JSON.parse(e.data).n;
 				online.textContent = n === 1 ? "Just you" : `${n} online`;
 				online.classList.add("live");
+				document.dispatchEvent(new CustomEvent("roki:online", { detail: n })); // the home page's Chat button
 			} catch (err) {}
 		});
 		source.onerror = () => {
 			online.textContent = "Reconnecting…";
 			online.classList.remove("live");
+			document.dispatchEvent(new CustomEvent("roki:online", { detail: null }));
 		};
 	}
 
@@ -320,7 +322,7 @@
 		input.focus();
 	});
 
-	// Someone who has used the chat before gets the unread badge without opening the page first
-	if (store.get("roki:chat-used") === "1") connect();
+	// Connect right away, so the unread badge and the home page's "N online" work without opening Chat first
+	connect();
 	if (!page.hidden) document.dispatchEvent(new CustomEvent("roki:page", { detail: "chat" }));
 })();
