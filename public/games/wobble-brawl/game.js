@@ -1,16 +1,17 @@
 // Wobble Brawl: an original physics brawler made for ROKI. Every fighter is a ragdoll (Matter.js bodies
-// held together by pin joints) that tries to stand and strike; hits land on how fast a fist or foot is
-// moving when it connects, and a knocked-out fighter goes fully floppy.
+// held together by pin joints) that tries to stand and strike. Moving toward an enemy throws punches;
+// hits land on how fast a fist, foot or weapon is moving when it connects, and a knocked-out fighter
+// goes fully floppy. Weapons lie on the roof to grab and throw; coins from wins buy weapons and skins.
 "use strict";
 (() => {
 	const { Engine, Bodies, Body, Composite, Constraint, Events } = window.Matter;
 
 	/* ---------- Basics ---------- */
 	const WORLD_W = 1400;
-	const WORLD_H = 800;
 	const FLOOR_Y = 700;
 	const STEP = 1000 / 60;
 	const TAU = Math.PI * 2;
+	const SWING = 16; // steps a weapon swing takes
 	const wrap = (a) => {
 		a = (a + Math.PI) % TAU;
 		if (a < 0) a += TAU;
@@ -21,6 +22,7 @@
 	const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 	const rand = (a, b) => a + Math.random() * (b - a);
 	const pick = (list) => list[Math.floor(Math.random() * list.length)];
+	const rot = (v, a) => ({ x: v.x * Math.cos(a) - v.y * Math.sin(a), y: v.x * Math.sin(a) + v.y * Math.cos(a) });
 	// Mix a #rrggbb color with white
 	const lighten = (hex, amt) => {
 		const n = parseInt(hex.slice(1), 16);
@@ -31,6 +33,7 @@
 		const l = Math.hypot(x, y) || 1;
 		return { x: x / l, y: y / l };
 	};
+	const CAT = { world: 0x0001, loose: 0x0002, fighter: 0x0004, armed: 0x0008 };
 	const vel = (b) => Body.getVelocity(b);
 	const addVel = (b, x, y) => {
 		const v = vel(b);
@@ -38,14 +41,38 @@
 	};
 	// The point `d` along a body's own down axis
 	const along = (b, d) => ({ x: b.position.x - Math.sin(b.angle) * d, y: b.position.y + Math.cos(b.angle) * d });
+	// Speed of one point of a spinning body
+	const pointVel = (b, p) => {
+		const v = vel(b);
+		const w = Body.getAngularVelocity(b);
+		return { x: v.x - w * (p.y - b.position.y), y: v.y + w * (p.x - b.position.x) };
+	};
 
 	const store = {
 		get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
 		set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
 	};
 
-	/* ---------- Fighters ---------- */
-	const PLAYER = { name: "You", scale: 1, hp: 120, power: 1.12, speed: 4.7, punchCool: 15, color: "#2de0c0", dark: "#13a38b", look: "band" };
+	/* ---------- Weapons, skins and fighters ---------- */
+	// Shapes are measured from the handle end (d = 0) toward the head; `grip` is where the hand holds it
+	const WEAPONS = {
+		bat: { name: "Bat", price: 40, mult: 1.35, cool: 20, len: 88, grip: 12, shape: [{ d0: 0, d1: 88, w: 14, dens: 0.0018 }] },
+		plank: { name: "Plank", price: 60, mult: 1.3, cool: 22, len: 110, grip: 14, shape: [{ d0: 0, d1: 110, w: 14, dens: 0.0014 }] },
+		sword: { name: "Toy Sword", price: 100, mult: 1.5, cool: 16, len: 92, grip: 10, shape: [{ d0: 0, d1: 92, w: 11, dens: 0.0016 }] },
+		pan: { name: "Frying Pan", price: 140, mult: 1.7, cool: 22, len: 78, grip: 10, shape: [{ d0: 0, d1: 42, w: 9, dens: 0.0015 }, { d: 58, r: 20, dens: 0.0022 }] },
+		hammer: { name: "Hammer", price: 200, mult: 2, cool: 28, len: 77, grip: 10, shape: [{ d0: 0, d1: 60, w: 10, dens: 0.0015 }, { d0: 55, d1: 77, w: 36, dens: 0.0026 }] },
+	};
+	const WEAPON_IDS = Object.keys(WEAPONS);
+	const SKINS = [
+		{ id: "teal", name: "Classic", price: 0, color: "#2de0c0", dark: "#13a38b", look: "band", band: "#ffffff" },
+		{ id: "lime", name: "Lime", price: 50, color: "#9be15d", dark: "#5fa52e", look: "cap", hat: "#2f6fe0" },
+		{ id: "bubble", name: "Bubblegum", price: 80, color: "#ff8fc7", dark: "#d9549a", look: "party", hat: "#ffd23f" },
+		{ id: "ice", name: "Ice", price: 120, color: "#9fd8ff", dark: "#5aa6e0", look: "beanie", hat: "#ffffff" },
+		{ id: "shadow", name: "Shadow", price: 160, color: "#5b6185", dark: "#363a57", look: "band", band: "#ff4d6d" },
+		{ id: "gold", name: "Gold", price: 250, color: "#ffc93c", dark: "#c9930a", look: "tophat", hat: "#1b1d2e" },
+	];
+	const P2_SKIN = { color: "#ff7a45", dark: "#c4501f", look: "cap", hat: "#1b1d2e" };
+	const HUMAN = { scale: 1, hp: 120, power: 1.12, speed: 4.7, punchCool: 14 };
 	const TYPES = {
 		brawler: { name: "Brawler", scale: 1, hp: 100, power: 0.9, speed: 3.3, punchCool: 22, aggro: 0.34, miss: 30, think: 12, kick: 0.25, color: "#ff7a45", dark: "#c4501f", look: "plain" },
 		zippy: { name: "Zippy", scale: 0.86, hp: 70, power: 0.75, speed: 4.5, punchCool: 15, aggro: 0.5, miss: 34, think: 8, kick: 0.15, color: "#ffd23f", dark: "#c99a06", look: "spikes" },
@@ -53,6 +80,29 @@
 		boss: { name: "The Boss", scale: 1.55, hp: 290, power: 1.45, speed: 2.9, punchCool: 24, aggro: 0.42, miss: 20, think: 11, kick: 0.3, heavy: 1.45, color: "#ff4d6d", dark: "#b81d3c", look: "crown" },
 	};
 
+	/* ---------- Saved progress ---------- */
+	const SAVE_KEY = "wobble-brawl:save";
+	const save = (() => {
+		let d = null;
+		try { d = JSON.parse(store.get(SAVE_KEY) || "null"); } catch (e) {}
+		if (!d || typeof d !== "object") d = {};
+		const list = (x, ok) => (Array.isArray(x) ? x.filter((v) => typeof v === "string" && ok(v)) : []);
+		const s = {
+			coins: Math.max(0, Math.floor(Number(d.coins) || 0)),
+			best: Math.max(0, Math.floor(Number(d.best) || Number(store.get("wobble-brawl:best")) || 0)),
+			skins: list(d.skins, (v) => SKINS.some((k) => k.id === v)),
+			weapons: list(d.weapons, (v) => v in WEAPONS),
+			skin: typeof d.skin === "string" ? d.skin : "teal",
+			weapon: typeof d.weapon === "string" ? d.weapon : null,
+		};
+		if (!s.skins.includes("teal")) s.skins.unshift("teal");
+		if (!s.skins.includes(s.skin)) s.skin = "teal";
+		if (s.weapon && !s.weapons.includes(s.weapon)) s.weapon = null;
+		return s;
+	})();
+	const persist = () => store.set(SAVE_KEY, JSON.stringify(save));
+
+	/* ---------- Physics world ---------- */
 	const engine = Engine.create({ positionIterations: 10, velocityIterations: 8, constraintIterations: 6 });
 	engine.gravity.y = 1.15;
 	const world = engine.world;
@@ -64,12 +114,18 @@
 		Bodies.rectangle(WORLD_W / 2, -650, WORLD_W + 800, 300, { ...wall, label: "wall" }),
 	]);
 
+	let fighters = [];
+	let humans = [];
+	let enemies = [];
+	let weapons = [];
+
 	let nextGroup = 1;
 	function makeFighter(t, x, team, facing) {
 		const s = t.scale;
 		const heavy = t.heavy || 1;
-		const filter = { group: -nextGroup++ };
-		const opts = (extra) => ({ collisionFilter: filter, friction: 0.5, frictionAir: 0.02, restitution: 0.05, density: 0.0016 * heavy, ...extra });
+		const group = -nextGroup++;
+		const filter = { group, category: CAT.fighter, mask: 0xffffffff };
+		const opts = (extra) => ({ collisionFilter: filter, friction: 0.25, frictionAir: 0.02, restitution: 0.05, density: 0.0016 * heavy, ...extra });
 		const ty = FLOOR_Y - 84 * s; // torso center when standing
 		const torso = Bodies.rectangle(x, ty, 28 * s, 58 * s, opts({ chamfer: { radius: 12 * s } }));
 		const head = Bodies.circle(x, ty - 46 * s, 17 * s, opts({ density: 0.0021 * heavy }));
@@ -77,14 +133,16 @@
 		const pin = (a, pa, b, pb) => Constraint.create({ bodyA: a, pointA: { x: 0, y: pa * s }, bodyB: b, pointB: { x: 0, y: pb * s }, length: 0, stiffness: 1, damping: 0.05 });
 
 		const f = {
-			t, s, team, facing, name: t.name,
+			t, s, team, facing, group, name: t.name,
 			hp: t.hp, maxHp: t.hp, power: t.power, speed: t.speed, punchCool: t.punchCool,
 			weight: heavy * s * s,
-			color: t.color, dark: t.dark, look: t.look, flashColor: lighten(t.color, 0.6), flashDark: lighten(t.dark, 0.6),
+			color: t.color, dark: t.dark, look: t.look, band: t.band, hat: t.hat,
+			flashColor: lighten(t.color, 0.6), flashDark: lighten(t.dark, 0.6),
 			torso, head, arms: [], legs: [], bodies: [torso, head], joints: [],
-			move: 0, aim: { x: x + facing * 200, y: ty - 46 * s }, grounded: true,
+			move: 0, aim: { x: x + facing * 200, y: ty - 46 * s }, grounded: true, weapon: null, equip: null, equipT: 0,
+			stepT: 0, stepLeg: 0, crouch: 0, reach: null, throwT: 0,
 			stun: 0, ko: false, flash: 0, hurt: 0, phase: 0, cool: 0, kcool: 0, jcool: 0, slamCool: 0, nextArm: 0,
-			ai: { timer: 30, err: { x: 0, y: 0 }, want: null },
+			ai: { timer: 30, err: { x: 0, y: 0 }, want: null, target: null },
 		};
 		f.joints.push(pin(torso, -31, head, 15));
 		for (let i = 0; i < 2; i++) {
@@ -114,8 +172,135 @@
 		for (const j of f.joints) Composite.remove(world, j);
 	}
 
+	function makeWeapon(type, x, y, angle) {
+		const t = WEAPONS[type];
+		const filter = { group: 0, category: CAT.loose, mask: CAT.world | CAT.loose };
+		const base = { collisionFilter: filter, friction: 0.7, frictionAir: 0.012, restitution: 0.15 };
+		const parts = t.shape.map((p) =>
+			p.r
+				? Bodies.circle(x, y - p.d, p.r, { ...base, density: p.dens })
+				: Bodies.rectangle(x, y - (p.d0 + p.d1) / 2, p.w, p.d1 - p.d0, { ...base, density: p.dens, chamfer: { radius: Math.min(p.w, p.d1 - p.d0) / 2 - 0.5 } }),
+		);
+		const body = parts.length > 1 ? Body.create({ parts, ...base }) : parts[0];
+		// Matter copies the options, so share the body's own filter with its parts and change that one later
+		for (const part of body.parts) part.collisionFilter = body.collisionFilter;
+		const w = {
+			type, t, body, filter: body.collisionFilter,
+			gripLocal: { x: x - body.position.x, y: y - t.grip - body.position.y },
+			holder: null, joint: null, thrownBy: null, thrownT: 0, thrownHit: false, swingHit: false, ungroupT: 0,
+		};
+		body.wpn = w;
+		Body.setAngle(body, angle);
+		Composite.add(world, body);
+		weapons.push(w);
+		return w;
+	}
+
+	// A weapon lying around can be walked over; held or flying, it hits fighters
+	function setLoose(w, loose) {
+		w.filter.category = loose ? CAT.loose : CAT.armed;
+		w.filter.mask = loose ? CAT.world | CAT.loose : 0xffffffff;
+	}
+
+	const gripOf = (w) => {
+		const g = rot(w.gripLocal, w.body.angle);
+		return { x: w.body.position.x + g.x, y: w.body.position.y + g.y };
+	};
+
+	// Holds w where it is: the grip is pulled into the hand by the joint (used when a reach touches it)
+	function hold(f, w) {
+		const arm = f.arms[0].l;
+		w.filter.group = f.group;
+		setLoose(w, false);
+		w.joint = Constraint.create({ bodyA: arm, pointA: rot({ x: 0, y: 16 * f.s }, arm.angle), bodyB: w.body, pointB: rot(w.gripLocal, w.body.angle), length: 0, stiffness: 0.9, damping: 0.1 });
+		Composite.add(world, w.joint);
+		w.holder = f;
+		w.thrownBy = null;
+		w.thrownT = 0;
+		w.ungroupT = 0;
+		f.weapon = w;
+	}
+
+	// Puts w straight into the hand (a starting weapon)
+	function attach(f, w) {
+		const arm = f.arms[0].l;
+		const hand = along(arm, 16 * f.s);
+		const ang = arm.angle + Math.PI;
+		Body.setAngle(w.body, ang);
+		const g = rot(w.gripLocal, ang);
+		Body.setPosition(w.body, { x: hand.x - g.x, y: hand.y - g.y });
+		Body.setVelocity(w.body, vel(arm));
+		Body.setAngularVelocity(w.body, 0);
+		w.filter.group = f.group; // never bumps its own holder
+		setLoose(w, false);
+		w.joint = Constraint.create({ bodyA: arm, pointA: rot({ x: 0, y: 16 * f.s }, arm.angle), bodyB: w.body, pointB: g, length: 0, stiffness: 1, damping: 0.05 });
+		Composite.add(world, w.joint);
+		w.holder = f;
+		w.thrownBy = null;
+		w.thrownT = 0;
+		w.ungroupT = 0;
+		f.weapon = w;
+	}
+
+	function drop(f, throwIt) {
+		const w = f.weapon;
+		if (!w) return;
+		if (w.joint) Composite.remove(world, w.joint);
+		w.joint = null;
+		w.holder = null;
+		f.weapon = null;
+		w.ungroupT = 12;
+		if (throwIt) {
+			Body.setVelocity(w.body, { x: f.facing * 24, y: -6 });
+			Body.setAngularVelocity(w.body, f.facing * 0.3);
+			w.thrownBy = f;
+			w.thrownT = 70;
+			w.thrownHit = false;
+			sfx.whoosh();
+		}
+	}
+
+	// How far a point is from the weapon's length (handle end to head)
+	function distToWeapon(w, p) {
+		const g = gripOf(w);
+		const a = w.body.angle;
+		const ax = { x: Math.sin(a), y: -Math.cos(a) };
+		const t = clamp((p.x - g.x) * ax.x + (p.y - g.y) * ax.y, -w.t.grip, w.t.len - w.t.grip);
+		return Math.hypot(p.x - (g.x + ax.x * t), p.y - (g.y + ax.y * t));
+	}
+
+	function nearestFreeWeapon(f, range) {
+		let best = null;
+		let bestD = Infinity;
+		for (const w of weapons) {
+			if (w.holder || w.thrownT > 0) continue;
+			const dx = Math.abs(w.body.position.x - f.torso.position.x);
+			const dy = Math.abs(w.body.position.y - f.torso.position.y);
+			if (dx < range && dy < 170 * f.s && dx < bestD) {
+				best = w;
+				bestD = dx;
+			}
+		}
+		return best;
+	}
+
+	function removeWeapon(w) {
+		if (w.holder) drop(w.holder, false);
+		Composite.remove(world, w.body);
+		weapons = weapons.filter((x) => x !== w);
+	}
+
 	const shoulder = (f) => along(f.torso, -24 * f.s);
 	const hip = (f) => along(f.torso, 25 * f.s);
+	const reachOf = (f) => 74 * f.s + 26 + (f.weapon ? f.weapon.t.len * 0.7 : 0);
+	const opponentsOf = (f) => fighters.filter((o) => o.team !== f.team && !o.ko);
+	function nearestOpponent(f) {
+		let best = null;
+		for (const o of opponentsOf(f)) {
+			if (!best || Math.abs(o.torso.position.x - f.torso.position.x) < Math.abs(best.torso.position.x - f.torso.position.x)) best = o;
+		}
+		return best;
+	}
 
 	function turnTo(b, target, k, damp) {
 		if (k <= 0) return;
@@ -129,30 +314,64 @@
 		const s = f.s;
 		const T = f.torso;
 		if (f.stun > 0) f.stun--;
-		const str = f.ko ? 0 : f.stun > 0 ? 0.1 : 1;
+		const str = f.ko ? 0 : f.stun > 0 ? 0.08 : 1;
 		const fc = f.facing;
 		const v = vel(T);
 
 		const feet = f.legs.map((l) => along(l.l, 19 * s).y);
 		f.grounded = Math.max(...feet) > FLOOR_Y - 14 * s || T.position.y > FLOOR_Y - 46 * s;
 
-		// Hold the body up at standing height and push it along
-		let vx = v.x;
-		let vy = v.y;
-		if (str > 0) {
-			if (f.grounded) {
-				const dy = FLOOR_Y - 80 * s - T.position.y; // > 0: torso is above standing height
-				if (dy < 8 * s) vy += (dy * 0.12 - v.y * 0.28 - 0.62) * str;
+		// Reaching for a weapon: bend toward it, and grab it once the hand touches the grip
+		f.crouch = 0;
+		let reachLean = 0;
+		if (f.reach) {
+			const w = f.reach.w;
+			if (w && !w.holder && !f.weapon && weapons.includes(w)) {
+				const g = gripOf(w);
+				if (g.y > T.position.y) {
+					f.crouch = clamp(g.y - T.position.y, 0, 44 * s);
+					reachLean = Math.sign(g.x - T.position.x || fc) * 0.9;
+				}
+				const hand = along(f.arms[0].l, 16 * s);
+				if (distToWeapon(w, hand) < 30 * s) {
+					hold(f, w);
+					sfx.pickup();
+					f.reach = null;
+				}
 			}
-			const target = f.move * f.speed;
-			vx += (target - v.x) * (f.grounded ? 0.2 : 0.05) * str;
-			Body.setVelocity(T, { x: vx, y: vy });
+			if (f.reach && --f.reach.t <= 0) f.reach = null;
 		}
 
+		// Hold the body up (a little springy, so it bobs) and lurch it along one step at a time
+		if (str > 0) {
+			let vy = v.y;
+			if (f.grounded) {
+				const dy = FLOOR_Y - 80 * s + f.crouch - T.position.y; // > 0: torso is above standing height
+				if (dy < 8 * s) vy += (dy * 0.085 - v.y * 0.2 - 0.62) * str;
+			}
+			let vx = v.x;
+			if (f.move) vx += (f.move * f.speed - v.x) * (f.grounded ? 0.13 : 0.03) * str;
+			else if (f.grounded) vx *= 1 - 0.12 * str; // plant the feet
+			Body.setVelocity(T, { x: vx, y: vy });
+			if (f.move && f.grounded) {
+				if (--f.stepT <= 0) {
+					f.stepT = Math.round(15 / Math.max(0.6, f.speed / 4.7));
+					f.stepLeg ^= 1;
+					const leg = f.legs[f.stepLeg];
+					addVel(leg.l, f.move * 5 * str, -5 * str);
+					addVel(leg.u, f.move * 2.5 * str, -2.5 * str);
+					addVel(T, f.move * 1.2 * str, -1.6 * str);
+				}
+			} else {
+				f.stepT = 0;
+			}
+		}
+
+		// Lean into the walk and into punches; the body sways because the hold is loose
 		const punching = f.arms.some((a) => a.t > 0);
-		const lean = f.move * 0.1 + (punching ? fc * 0.14 : 0);
-		turnTo(T, -lean, 0.32 * str, 0.32 * str);
-		turnTo(f.head, T.angle * 0.5, 0.3 * str, 0.3 * str);
+		const lean = reachLean || f.move * 0.2 + (punching ? fc * 0.16 : 0);
+		turnTo(T, lean, 0.18 * str, 0.22 * str);
+		turnTo(f.head, T.angle * 0.5, 0.14 * str, 0.14 * str);
 
 		// Legs: walk cycle on the ground, tucked in the air, a straight leg when kicking
 		const speed = Math.abs(v.x);
@@ -161,15 +380,13 @@
 		f.legs.forEach((leg, i) => {
 			let ta;
 			let sa;
+			let k = 0.22;
 			if (leg.t > 0) {
 				const h = hip(f);
 				const d = norm(f.aim.x - h.x, clamp(f.aim.y - h.y, -90 * s, 10 * s));
 				ta = sa = angleFor(d.x, d.y);
-				turnTo(leg.u, ta, 0.55 * str, 0.3 * str);
-				turnTo(leg.l, sa, 0.55 * str, 0.3 * str);
-				return;
-			}
-			if (f.grounded) {
+				k = 0.55;
+			} else if (f.grounded) {
 				const ph = f.phase + i * Math.PI;
 				ta = angleFor(fc * (i ? -0.12 : 0.14) + Math.sin(ph) * swing * Math.sign(v.x || fc), 1);
 				sa = ta + fc * (0.12 + Math.max(0, Math.cos(ph)) * 0.7 * Math.min(1, speed / 2));
@@ -177,23 +394,88 @@
 				ta = angleFor(fc * (i ? 0.15 : 0.55), 1);
 				sa = ta + fc * 0.9;
 			}
-			turnTo(leg.u, ta, 0.3 * str, 0.3 * str);
-			turnTo(leg.l, sa, 0.3 * str, 0.3 * str);
+			turnTo(leg.u, ta, k * str, 0.3 * str);
+			turnTo(leg.l, sa, k * str, 0.3 * str);
 		});
 
-		// Arms: fists up in guard, or a straight arm at the target while punching
+		// Arms: fists up, a straight arm at the target while punching, or a weapon raised and swung
 		f.arms.forEach((arm, i) => {
-			if (arm.t > 0) {
+			let ua;
+			let la;
+			let k = 0.2;
+			if (i === 0 && f.reach) {
+				const w = f.reach.w;
+				const sh = shoulder(f);
+				const g = w ? gripOf(w) : { x: sh.x + fc * 80, y: sh.y + 60 };
+				const d = norm(g.x - sh.x, g.y - sh.y);
+				ua = la = angleFor(d.x, d.y);
+				k = 0.55;
+			} else if (i === 0 && f.throwT > 0) {
+				ua = la = f.throwT > 8 ? angleFor(-fc * 0.7, -0.8) : angleFor(fc, -0.35);
+				k = 0.7;
+			} else if (i === 0 && f.weapon) {
+				if (arm.t > 0) {
+					const p = 1 - arm.t / SWING;
+					const start = angleFor(-fc * 0.45, -1);
+					const end = angleFor(fc, 0.45);
+					const e = p < 0.3 ? 0 : Math.min(1, (p - 0.3) / 0.4);
+					ua = la = start + wrap(end - start) * e;
+					k = 0.7;
+					if (arm.t === Math.round(SWING * 0.7) && str > 0) {
+						const dir = Math.sign(wrap(end - start));
+						Body.setAngularVelocity(f.weapon.body, dir * 0.42);
+						Body.setAngularVelocity(arm.l, dir * 0.35);
+					}
+				} else {
+					ua = angleFor(fc * 0.5, 0.6);
+					la = angleFor(fc * 0.35, -1);
+					k = 0.25;
+				}
+			} else if (arm.t > 0) {
 				const sh = shoulder(f);
 				const d = norm(f.aim.x - sh.x, f.aim.y - sh.y);
-				const a = angleFor(d.x, d.y);
-				turnTo(arm.u, a, 0.6 * str, 0.3 * str);
-				turnTo(arm.l, a, 0.6 * str, 0.3 * str);
+				ua = la = angleFor(d.x, d.y);
+				k = 0.6;
 			} else {
-				turnTo(arm.u, angleFor(fc * (i ? 0.3 : 0.55), 0.8), 0.22 * str, 0.3 * str);
-				turnTo(arm.l, angleFor(fc * (i ? 0.62 : 0.5), -0.9), 0.22 * str, 0.3 * str);
+				ua = angleFor(fc * (i ? 0.3 : 0.55), 0.8);
+				la = angleFor(fc * (i ? 0.62 : 0.5), -0.9);
+				k = 0.13;
 			}
+			turnTo(arm.u, ua, k * str, 0.3 * str);
+			turnTo(arm.l, la, k * str, 0.3 * str);
 		});
+		if (f.weapon) {
+			const firm = f.arms[0].t > 0 || f.throwT > 0;
+			if (f.ko) drop(f, false);
+			else turnTo(f.weapon.body, f.arms[0].l.angle + Math.PI, (firm ? 0.45 : 0.22) * str, (firm ? 0.3 : 0.14) * str);
+		}
+		if (f.throwT > 0) {
+			f.throwT--;
+			if (f.throwT === 6 && f.weapon) {
+				const w = f.weapon;
+				const hand = along(f.arms[0].l, 16 * s);
+				drop(f, false);
+				// Aim at the nearest fighter in front: fast and fairly flat, allowing for the drop
+				const opp = nearestOpponent(f);
+				const SPEED = 21;
+				let vy = -3;
+				if (opp && (opp.torso.position.x - hand.x) * fc > 0) {
+					const steps = Math.max(4, Math.abs(opp.torso.position.x - hand.x) / SPEED);
+					vy = clamp((opp.torso.position.y - 10 * opp.s - hand.y) / steps - 0.5 * 0.32 * steps, -12, 6);
+				}
+				Body.setVelocity(w.body, { x: fc * SPEED, y: vy });
+				Body.setAngularVelocity(w.body, fc * 0.3);
+				w.thrownBy = f;
+				w.thrownT = 70;
+				w.thrownHit = false;
+				setLoose(w, false);
+				sfx.whoosh();
+			}
+		}
+		if (f.equip && f.equipT > 0 && --f.equipT === 0 && !f.ko && !f.weapon) {
+			const hand = along(f.arms[0].l, 16 * f.s);
+			attach(f, makeWeapon(f.equip, hand.x, hand.y, 0));
+		}
 
 		for (const a of f.arms) if (a.t > 0) a.t--;
 		for (const l of f.legs) if (l.t > 0) l.t--;
@@ -207,8 +489,17 @@
 
 	const canAct = (f) => !f.ko && f.stun <= 0;
 
-	function punch(f) {
-		if (!canAct(f) || f.cool > 0) return;
+	function attack(f) {
+		if (!canAct(f) || f.cool > 0 || f.reach || f.throwT > 0) return;
+		if (f.weapon) {
+			const arm = f.arms[0];
+			arm.t = SWING;
+			arm.hit = false;
+			f.weapon.swingHit = false;
+			f.cool = f.weapon.t.cool;
+			sfx.whoosh();
+			return;
+		}
 		const arm = f.arms[f.nextArm];
 		f.nextArm ^= 1;
 		arm.t = 11;
@@ -227,7 +518,7 @@
 		const leg = f.legs[0];
 		leg.t = 14;
 		leg.hit = false;
-		f.kcool = 32;
+		f.kcool = 30;
 		f.cool = 10;
 		const h = hip(f);
 		const d = norm(f.aim.x - h.x, clamp(f.aim.y - h.y, -90 * f.s, 10 * f.s));
@@ -238,10 +529,20 @@
 
 	function jump(f) {
 		if (!canAct(f) || !f.grounded || f.jcool > 0) return;
-		f.jcool = 32;
+		f.jcool = 30;
 		for (const b of f.bodies) addVel(b, 0, -11);
 		addVel(f.torso, 0, -3);
 		sfx.jump();
+	}
+
+	// Space: reach out and grab the nearest weapon (the hand has to touch it), or throw the one you hold
+	function grab(f) {
+		if (!canAct(f) || f.reach || f.throwT > 0) return;
+		if (f.weapon) {
+			f.throwT = 16;
+			return;
+		}
+		f.reach = { w: nearestFreeWeapon(f, 130 * f.s), t: 24 };
 	}
 
 	/* ---------- Hits ---------- */
@@ -256,25 +557,52 @@
 		return sp && sp[0] ? { x: sp[0].x, y: sp[0].y } : { x: fallback.position.x, y: fallback.position.y };
 	}
 
+	// x hits y: a fist or foot mid-punch/kick, a weapon mid-swing, or a thrown weapon
 	function strike(x, y, pair) {
-		const px = x.wb;
 		const py = y.wb;
-		if (!px || !py || px.f === py.f || px.f.team === py.f.team) return;
-		const A = px.f;
+		if (!py || py.f.ko) return;
 		const V = py.f;
-		const limb = px.kind === "larm" ? A.arms[px.i] : px.kind === "shin" ? A.legs[px.i] : null;
-		if (!limb || limb.t <= 0 || limb.hit || A.ko || V.ko) return;
-		const va = vel(x);
+		let A;
+		let mult;
+		let done;
+		if (x.wpn) {
+			const w = x.wpn;
+			if (w.holder) {
+				A = w.holder;
+				const arm = A.arms[0];
+				if (A.team === V.team || A.ko || arm.t <= 0 || arm.t > SWING * 0.75 || w.swingHit) return;
+				mult = w.t.mult;
+				done = () => { w.swingHit = true; };
+			} else if (w.thrownT > 0 && w.thrownBy && !w.thrownHit) {
+				A = w.thrownBy;
+				if (A.team === V.team) return;
+				mult = w.t.mult * 0.85;
+				done = () => { w.thrownHit = true; };
+			} else {
+				return;
+			}
+		} else {
+			const px = x.wb;
+			if (!px || px.f === V || px.f.team === V.team) return;
+			A = px.f;
+			const limb = px.kind === "larm" ? A.arms[px.i] : px.kind === "shin" ? A.legs[px.i] : null;
+			if (!limb || limb.t <= 0 || limb.hit || A.ko) return;
+			if (px.kind === "larm" && px.i === 0 && A.weapon) return; // that hand hits with its weapon
+			mult = px.kind === "shin" ? 1.25 : 1;
+			done = () => { limb.hit = true; };
+		}
+		const at = contactPoint(pair, y);
+		const va = pointVel(x, at);
 		const vb = vel(y);
 		const rx = va.x - vb.x;
 		const ry = va.y - vb.y;
 		const rv = Math.hypot(rx, ry);
 		if (rv < 6) return;
-		limb.hit = true;
+		done();
 		const head = py.kind === "head";
-		const mult = head ? 1.7 : py.kind === "torso" ? 1 : 0.55;
-		const dmg = Math.min(48, (rv - 4) * 0.95 * mult * A.power * (px.kind === "shin" ? 1.25 : 1));
-		hurt(V, dmg, y, rx / rv, ry / rv, (4 + rv * 0.45) * A.power, contactPoint(pair, y), head);
+		const part = head ? 1.7 : py.kind === "torso" ? 1 : 0.55;
+		const dmg = Math.min(60, (rv - 4) * 0.9 * part * A.power * mult);
+		hurt(V, dmg, y, rx / rv, ry / rv, (6 + rv * 0.55) * A.power * Math.min(1.6, mult), at, head);
 	}
 
 	function hurt(V, dmg, part, nx, ny, push, at, head) {
@@ -287,9 +615,11 @@
 		addVel(part, nx * kb, ny * kb - 2);
 		addVel(V.torso, nx * kb * 0.6, ny * kb * 0.4 - 2.5);
 		addVel(V.head, nx * kb * 0.5, -1.5);
-		if (dmg >= 9) V.stun = Math.max(V.stun, Math.min(V.team === "player" ? 20 : 42, Math.round(dmg * 1.5)));
-		burst(at.x, at.y, Math.min(22, 6 + dmg / 2), head ? "#fff3b0" : "#ffffff", nx, ny);
-		popups.push({ x: at.x, y: at.y - 10, text: String(dmg), size: 18 + Math.min(26, dmg * 0.7), life: 50, max: 50, color: head ? "#ffd23f" : "#ffffff" });
+		if (dmg >= 8) V.stun = Math.max(V.stun, Math.min(humans.includes(V) ? 22 : 46, Math.round(dmg * 1.6)));
+		if (V.weapon && dmg >= 18 && Math.random() < 0.4) drop(V, false);
+		if (dmg >= 8) V.reach = null;
+		burst(at.x, at.y, Math.min(24, 6 + dmg / 2), head ? "#fff3b0" : "#ffffff", nx, ny);
+		popups.push({ x: at.x, y: at.y - 10, text: String(dmg), size: 18 + Math.min(28, dmg * 0.7), life: 50, max: 50, color: head ? "#ffd23f" : "#ffffff" });
 		shake = Math.min(18, shake + dmg * 0.45);
 		if (dmg >= 12) hitStop = Math.min(7, Math.round(dmg / 5));
 		sfx.hit(dmg, head);
@@ -299,7 +629,8 @@
 	function knockOut(V, nx, ny) {
 		V.ko = true;
 		V.stun = 0;
-		for (const b of V.bodies) addVel(b, nx * 6, ny * 3 - 6);
+		drop(V, false);
+		for (const b of V.bodies) addVel(b, nx * 10, ny * 4 - 9);
 		slowmo = 70;
 		shake = 20;
 		burst(V.head.position.x, V.head.position.y, 34, "#ffd23f", nx, ny);
@@ -310,7 +641,7 @@
 	// A head or body slammed into the floor or a wall hurts a little
 	function slam(x, y) {
 		const p = x.wb;
-		if (!p || y.wb || (p.kind !== "head" && p.kind !== "torso")) return;
+		if (!p || y.wb || y.wpn || (p.kind !== "head" && p.kind !== "torso")) return;
 		const F = p.f;
 		if (F.ko || F.slamCool > 0 || (F.stun <= 0 && F.grounded)) return;
 		const v = vel(x);
@@ -395,6 +726,8 @@
 	const sfx = {
 		whoosh: () => noise(0.08, 0.05, 2600),
 		jump: () => tone(240, 0.14, "square", 0.04, 480),
+		pickup: () => tone(520, 0.1, "triangle", 0.08, 780),
+		coin: () => [988, 1319].forEach((f, i) => setTimeout(() => tone(f, 0.12, "square", 0.05), i * 90)),
 		hit: (d, head) => {
 			noise(0.09, Math.min(0.5, 0.15 + d / 60), head ? 1500 : 900);
 			tone(head ? 230 : 150, 0.14, "sine", Math.min(0.45, 0.2 + d / 80), 55);
@@ -406,25 +739,27 @@
 		win: () => [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, 0.18, "square", 0.05), i * 110)),
 	};
 
-	/* ---------- Levels ---------- */
-	const menuEl = document.getElementById("menu");
-	const overEl = document.getElementById("over");
-	const pausedEl = document.getElementById("paused");
-	const overText = document.getElementById("over-text");
-	const menuBest = document.getElementById("menu-best");
+	/* ---------- Game flow ---------- */
+	const $ = (id) => document.getElementById(id);
+	const canvas = $("game");
+	canvas.tabIndex = 0;
+	const screens = { menu: $("menu"), cleared: $("cleared"), over: $("over"), match: $("match"), paused: $("paused"), shop: $("shop") };
 
-	let state = "menu"; // menu, fight, clear, over, paused
+	let mode = "solo"; // solo or duo
+	let state = "menu"; // menu, fight, clear, over, roundEnd, result, paused
 	let level = 1;
-	let best = Number(store.get("wobble-brawl:best")) || 0;
-	let player = null;
-	let enemies = [];
+	let round = 0;
+	let score = [0, 0];
 	let startDelay = 0;
 	let stateTimer = 0;
 	let banner = null;
+	let hintT = 0;
+	let shopBack = null;
 
-	function showBest() {
-		menuBest.textContent = best > 0 ? `Your best: cleared level ${best}` : "";
+	function show(name) {
+		for (const [k, el] of Object.entries(screens)) el.hidden = k !== name;
 	}
+	const visibleScreen = () => Object.values(screens).find((el) => !el.hidden) || null;
 
 	function roster(n) {
 		const fixed = { 1: ["brawler"], 2: ["zippy"], 3: ["bruiser"], 4: ["brawler", "zippy"], 5: ["boss"] };
@@ -447,161 +782,259 @@
 		};
 	}
 
-	function clearFighters() {
-		for (const f of [player, ...enemies]) if (f) removeFighter(f);
-		player = null;
+	const skinById = (id) => SKINS.find((k) => k.id === id) || SKINS[0];
+
+	function clearArena() {
+		for (const w of [...weapons]) removeWeapon(w);
+		for (const f of fighters) removeFighter(f);
+		fighters = [];
+		humans = [];
 		enemies = [];
 		particles.length = 0;
 		popups.length = 0;
-	}
-
-	function setup(n, demo) {
-		clearFighters();
-		level = n;
-		player = makeFighter(PLAYER, 300, "player", 1);
-		const list = demo ? ["brawler"] : roster(n);
-		enemies = list.map((type, i) => makeFighter(enemyFor(type, n), Math.min(1320, 1080 + i * 115), "enemy", -1));
-		startDelay = 75;
 		hitStop = slowmo = shake = 0;
 	}
 
+	function spawnWeapon(type, x) {
+		makeWeapon(type, x, FLOOR_Y - 40, Math.PI / 2 + rand(-0.15, 0.15));
+	}
+
+	function setupSolo(n, demo) {
+		clearArena();
+		mode = "solo";
+		level = n;
+		const p = makeFighter({ ...HUMAN, ...skinById(save.skin), name: "You" }, 300, "p1", 1);
+		if (!demo && save.weapon) {
+			p.equip = save.weapon;
+			p.equipT = 20;
+		}
+		humans = [p];
+		const list = demo ? ["brawler"] : roster(n);
+		enemies = list.map((type, i) => {
+			const e = makeFighter(enemyFor(type, n), Math.min(1320, 1080 + i * 115), "enemy", -1);
+			if (!demo && n >= 3 && type !== "zippy" && Math.random() < Math.min(0.6, 0.15 + n * 0.04)) {
+				e.equip = pick(WEAPON_IDS);
+				e.equipT = 22 + i * 3;
+			}
+			return e;
+		});
+		fighters = [...humans, ...enemies];
+		if (!demo) {
+			if (n === 1) spawnWeapon("bat", 640);
+			else for (let i = 0; i < (n >= 6 ? 2 : 1); i++) spawnWeapon(pick(WEAPON_IDS), rand(520, 900));
+		}
+		startDelay = 75;
+	}
+
 	function startLevel(n) {
-		setup(n, false);
+		setupSolo(n, false);
 		state = "fight";
-		const names = enemies.map((e) => e.name).join(" + ");
-		banner = { title: `Level ${n}`, sub: names, life: 110, max: 110 };
-		menuEl.hidden = overEl.hidden = pausedEl.hidden = true;
+		banner = { title: `Level ${n}`, sub: enemies.map((e) => e.name).join(" + "), life: 110, max: 110 };
+		hintT = n === 1 ? 480 : 0;
+		show(null);
 		canvas.focus();
+	}
+
+	function startDuo() {
+		score = [0, 0];
+		round = 0;
+		nextRound();
+	}
+
+	function nextRound() {
+		clearArena();
+		mode = "duo";
+		round++;
+		const p1 = makeFighter({ ...HUMAN, ...skinById(save.skin), hp: 150, name: "P1" }, 380, "p1", 1);
+		const p2 = makeFighter({ ...HUMAN, ...P2_SKIN, hp: 150, name: "P2" }, 1020, "p2", -1);
+		humans = [p1, p2];
+		fighters = [p1, p2];
+		spawnWeapon(pick(WEAPON_IDS), rand(560, 660));
+		spawnWeapon(pick(WEAPON_IDS), rand(740, 840));
+		startDelay = 60;
+		state = "fight";
+		banner = { title: `Round ${round}`, sub: "Fight!", life: 100, max: 100 };
+		hintT = round === 1 ? 480 : 0;
+		show(null);
+		canvas.focus();
+	}
+
+	function toMenu() {
+		setupSolo(1, true);
+		state = "menu";
+		banner = null;
+		$("menu-info").innerHTML = `<span class="coins">${save.coins} coins</span>` + (save.best ? ` · Best: cleared level ${save.best}` : "");
+		show("menu");
 	}
 
 	function pause(on) {
 		if (on && state === "fight") {
 			state = "paused";
-			pausedEl.hidden = false;
+			show("paused");
 		} else if (!on && state === "paused") {
 			state = "fight";
-			pausedEl.hidden = true;
+			show(null);
 			canvas.focus();
 		}
 	}
 
+	function finishLevel() {
+		const p = humans[0];
+		const earned = 8 + level * 4 + Math.round((10 * p.hp) / p.maxHp);
+		save.coins += earned;
+		save.best = Math.max(save.best, level);
+		persist();
+		popups.push({ x: p.head.position.x, y: p.head.position.y - 60, text: `+${earned} coins`, size: 30, life: 90, max: 90, color: "#ffd23f" });
+		setTimeout(sfx.coin, 300);
+		$("cleared-title").textContent = `Level ${level} cleared!`;
+		$("cleared-text").innerHTML = `<span class="coins">+${earned} coins</span> · You have ${save.coins}`;
+	}
+
+	function openShop() {
+		shopBack = Object.keys(screens).find((k) => !screens[k].hidden) || null;
+		renderShop();
+		show("shop");
+		$("shop-done").focus();
+	}
+	function closeShop() {
+		show(shopBack);
+		if (shopBack === "menu") toMenu();
+	}
+
+	$("play").addEventListener("click", () => { audio(); startLevel(1); });
+	$("duo").addEventListener("click", () => { audio(); startDuo(); });
+	$("menu-shop").addEventListener("click", openShop);
+	$("next").addEventListener("click", () => startLevel(level + 1));
+	$("cleared-shop").addEventListener("click", openShop);
+	$("retry").addEventListener("click", () => { audio(); startLevel(level); });
+	$("over-shop").addEventListener("click", openShop);
+	$("over-menu").addEventListener("click", toMenu);
+	$("rematch").addEventListener("click", startDuo);
+	$("match-menu").addEventListener("click", toMenu);
+	$("resume").addEventListener("click", () => pause(false));
+	$("quit").addEventListener("click", toMenu);
+	$("shop-done").addEventListener("click", closeShop);
+	document.addEventListener("visibilitychange", () => { if (document.hidden) pause(true); });
+
 	/* ---------- Input ---------- */
-	const canvas = document.getElementById("game");
-	canvas.tabIndex = 0;
 	const keys = {};
-	const mouse = { x: 0, y: 0, active: false, movedAt: -1e9, down: false, right: false };
+	const pressed = {};
+	const CONTROLS = {
+		solo: [{ left: ["a", "arrowleft"], right: ["d", "arrowright"], jump: ["w", "arrowup"], kick: ["s", "arrowdown"], grab: [" ", "enter"] }],
+		duo: [
+			{ left: ["a"], right: ["d"], jump: ["w"], kick: ["s"], grab: [" "] },
+			{ left: ["arrowleft"], right: ["arrowright"], jump: ["arrowup"], kick: ["arrowdown"], grab: ["enter", "/", "shift"] },
+		],
+	};
+	const isDown = (list) => list.some((k) => keys[k]);
+	const wasPressed = (list) => list.some((k) => pressed[k]);
 
 	addEventListener("keydown", (e) => {
 		const k = e.key.toLowerCase();
-		if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault();
+		const scr = visibleScreen();
+		if (scr) {
+			if (scr === screens.shop) {
+				if (k === "escape") closeShop();
+				return;
+			}
+			if (k === "escape" && scr === screens.paused) {
+				pause(false);
+				return;
+			}
+			if (k === " " || k === "enter") {
+				const focused = document.activeElement;
+				if (focused && focused.tagName === "BUTTON" && scr.contains(focused)) return; // the button handles it
+				e.preventDefault();
+				if (!e.repeat) scr.querySelector("[data-primary]").click();
+			}
+			return;
+		}
+		if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright", "enter", "/"].includes(k)) e.preventDefault();
 		if (k === "escape" || k === "p") {
-			if (state === "fight") pause(true);
-			else if (state === "paused") pause(false);
+			pause(true);
 			return;
 		}
 		if (k === "m") {
 			muted = !muted;
 			store.set("wobble-brawl:muted", muted ? "1" : "0");
-			popups.push({ x: WORLD_W / 2, y: 140, text: muted ? "Sound off" : "Sound on", size: 26, life: 60, max: 60, color: "#ffffff", screen: true });
+			popups.push({ text: muted ? "Sound off" : "Sound on", size: 26, life: 60, max: 60, color: "#ffffff", screen: true });
 			return;
 		}
-		if (e.repeat) return;
-		if ((k === " " || k === "enter") && (state === "menu" || state === "over")) {
-			startLevel(state === "over" ? level : 1);
-			return;
-		}
-		if (k === " " && state === "clear") {
-			stateTimer = Math.min(stateTimer, 1);
-			return;
-		}
+		audio();
+		if (!e.repeat) pressed[k] = true;
 		keys[k] = true;
-		if (k === "w" || k === "arrowup" || k === " ") keys.jumpPressed = true;
 	});
 	addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
-	addEventListener("blur", () => {
-		for (const k in keys) keys[k] = false;
-		mouse.down = mouse.right = false;
-	});
-
-	let view = { scale: 1, x: 0, y: 0 };
-	function toWorld(cx, cy) {
-		return { x: (cx - view.x) / view.scale, y: (cy - view.y) / view.scale };
-	}
-	canvas.addEventListener("pointermove", (e) => {
-		const p = toWorld(e.clientX, e.clientY);
-		mouse.x = p.x;
-		mouse.y = p.y;
-		mouse.active = true;
-		mouse.movedAt = performance.now();
-	});
-	canvas.addEventListener("pointerdown", (e) => {
-		canvas.focus();
-		audio();
-		const p = toWorld(e.clientX, e.clientY);
-		mouse.x = p.x;
-		mouse.y = p.y;
-		mouse.active = true;
-		mouse.movedAt = performance.now();
-		if (e.button === 2) mouse.right = true;
-		else mouse.down = true;
-		try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
-	});
-	const release = (e) => {
-		if (e.button === 2) mouse.right = false;
-		else mouse.down = false;
-	};
-	canvas.addEventListener("pointerup", release);
-	canvas.addEventListener("pointercancel", () => { mouse.down = mouse.right = false; });
+	addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
+	canvas.addEventListener("pointerdown", () => { canvas.focus(); audio(); });
 	canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
-	document.getElementById("play").addEventListener("click", () => { audio(); startLevel(1); });
-	document.getElementById("retry").addEventListener("click", () => { audio(); startLevel(level); });
-	document.getElementById("resume").addEventListener("click", () => pause(false));
-	document.addEventListener("visibilitychange", () => { if (document.hidden) pause(true); });
-
-	const alive = () => enemies.filter((e) => !e.ko);
-
-	function playerInput() {
-		const p = player;
-		p.move = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
-		const foes = alive();
-		const near = foes.sort((a, b) => Math.abs(a.torso.position.x - p.torso.position.x) - Math.abs(b.torso.position.x - p.torso.position.x))[0];
-		const useMouse = mouse.active && performance.now() - mouse.movedAt < 4000;
-		if (useMouse) p.aim = { x: mouse.x, y: mouse.y };
-		else if (near) p.aim = { x: near.head.position.x, y: near.head.position.y };
-		else p.aim = { x: p.torso.position.x + p.facing * 200, y: p.head.position.y };
-		if (keys.j && near && !useMouse) p.aim = { x: near.head.position.x, y: near.head.position.y };
-		p.facing = p.aim.x >= p.torso.position.x ? 1 : -1;
-		if (keys.jumpPressed) jump(p);
-		keys.jumpPressed = false;
-		if (mouse.down || keys.j) punch(p);
-		if (mouse.right || keys.k) kick(p);
+	// Moving toward an enemy is how you hit: a fresh tap always punches (or swings), and holding the key
+	// keeps punching while someone is in reach.
+	function humanInput(f, c) {
+		const dir = (isDown(c.right) ? 1 : 0) - (isDown(c.left) ? 1 : 0);
+		const tapR = wasPressed(c.right);
+		const tapL = wasPressed(c.left);
+		f.move = dir;
+		const opp = nearestOpponent(f);
+		if (dir) f.facing = dir;
+		else if (tapR !== tapL) f.facing = tapR ? 1 : -1; // a tap shorter than one frame still counts
+		else if (opp) f.facing = opp.torso.position.x >= f.torso.position.x ? 1 : -1;
+		const fc = f.facing;
+		const dx = opp ? opp.torso.position.x - f.torso.position.x : 0;
+		const ahead = opp && dx * fc > -20 && Math.abs(dx) < 280 * f.s;
+		f.aim = ahead ? { x: opp.head.position.x, y: opp.head.position.y + 6 } : { x: f.torso.position.x + fc * 200, y: f.head.position.y + 10 };
+		const tapped = tapR || tapL;
+		if (tapped || (dir && ahead && Math.abs(dx) < reachOf(f) * 1.1)) attack(f);
+		if (wasPressed(c.jump)) jump(f);
+		if (wasPressed(c.kick)) kick(f);
+		if (wasPressed(c.grab)) grab(f);
 	}
 
 	function enemyThink(e) {
 		const ai = e.ai;
-		const P = player;
-		e.aim = { x: P.head.position.x + ai.err.x, y: P.head.position.y + ai.err.y };
-		const dx = P.torso.position.x - e.torso.position.x;
-		e.facing = dx >= 0 ? 1 : -1;
-		if (e.ko || startDelay > 0 || P.ko || state !== "fight") {
+		const P = nearestOpponent(e);
+		if (!P) {
 			e.move = 0;
 			return;
 		}
+		e.aim = { x: P.head.position.x + ai.err.x, y: P.head.position.y + ai.err.y };
+		const dx = P.torso.position.x - e.torso.position.x;
+		e.facing = dx >= 0 ? 1 : -1;
+		if (e.ko || startDelay > 0 || state !== "fight") {
+			e.move = 0;
+			return;
+		}
+		if (ai.target && (ai.target.holder || ai.target.thrownT > 0 || !weapons.includes(ai.target) || e.weapon)) ai.target = null;
 		if (--ai.timer <= 0) {
 			const t = e.t;
 			ai.timer = t.think + Math.floor(rand(0, 6));
 			ai.err = { x: rand(-1, 1) * t.miss, y: rand(-1, 1) * t.miss };
 			const dist = Math.abs(dx);
-			const reach = 74 * e.s + 26;
-			if (dist > reach) e.move = Math.sign(dx);
-			else if (dist < reach * 0.55) e.move = -Math.sign(dx) * 0.6;
+			const reach = reachOf(e);
+			if (!e.weapon && !ai.target && Math.random() < 0.5) {
+				const w = nearestFreeWeapon(e, 320);
+				if (w && Math.abs(w.body.position.x - e.torso.position.x) < dist) ai.target = w;
+			}
+			if (ai.target) {
+				const wx = ai.target.body.position.x - e.torso.position.x;
+				e.move = Math.abs(wx) > 30 ? Math.sign(wx) : 0;
+			} else if (dist > reach) e.move = Math.sign(dx);
+			else if (dist < reach * 0.5) e.move = -Math.sign(dx) * 0.6;
 			else e.move = Math.random() < 0.3 ? Math.sign(dx) * 0.5 : 0;
-			if (dist < reach * 1.25 && Math.random() < t.aggro) ai.want = Math.random() < t.kick ? "kick" : "punch";
+			if (dist < reach * 1.2 && Math.random() < t.aggro) ai.want = !e.weapon && Math.random() < t.kick ? "kick" : "attack";
+			if (e.weapon && dist > 380 && Math.random() < 0.05) grab(e); // throw it
 			if (e.grounded && dist > reach * 1.6 && Math.random() < 0.06) jump(e);
 		}
-		if (ai.want === "punch" && e.cool <= 0) {
-			punch(e);
+		if (ai.target) {
+			e.facing = ai.target.body.position.x >= e.torso.position.x ? 1 : -1;
+			if (Math.abs(ai.target.body.position.x - e.torso.position.x) < 95 * e.s && !e.reach) {
+				grab(e);
+				ai.target = null;
+			}
+		}
+		if (ai.want === "attack" && e.cool <= 0) {
+			attack(e);
 			ai.want = null;
 		} else if (ai.want === "kick" && e.kcool <= 0 && e.cool <= 0) {
 			kick(e);
@@ -620,44 +1053,80 @@
 		const ts = slowmo > 0 ? 0.4 : 1;
 		if (slowmo > 0) slowmo--;
 		if (startDelay > 0) startDelay--;
+		if (hintT > 0) hintT--;
 
-		if (state === "fight" && !player.ko) playerInput();
-		else player.move = 0;
+		const ctl = CONTROLS[mode];
+		humans.forEach((h, i) => {
+			if (state === "fight" && !h.ko) humanInput(h, ctl[i]);
+			else h.move = 0;
+		});
+		for (const k in pressed) delete pressed[k];
 		for (const e of enemies) enemyThink(e);
-		control(player);
-		for (const e of enemies) control(e);
+		for (const f of fighters) control(f);
 
 		Engine.update(engine, STEP * ts);
 
-		for (const f of [player, ...enemies]) {
+		for (const f of fighters) {
 			for (const b of f.bodies) {
 				const v = vel(b);
 				const sp = Math.hypot(v.x, v.y);
 				if (sp > 40) Body.setVelocity(b, { x: (v.x / sp) * 40, y: (v.y / sp) * 40 });
 			}
 		}
+		for (const w of [...weapons]) {
+			if (w.ungroupT > 0 && --w.ungroupT === 0) {
+				w.filter.group = 0;
+				if (!(w.thrownT > 0)) setLoose(w, true);
+			}
+			if (w.thrownT > 0 && --w.thrownT === 0 && !w.holder) setLoose(w, true);
+			if (w.body.position.y > 1600) removeWeapon(w);
+		}
 
 		if (state === "fight") {
-			if (player.ko) {
-				state = "over";
-				stateTimer = 100;
-			} else if (alive().length === 0) {
-				state = "clear";
-				stateTimer = 140;
-				if (level > best) {
-					best = level;
-					store.set("wobble-brawl:best", String(best));
+			if (mode === "solo") {
+				if (humans[0].ko) {
+					state = "over";
+					stateTimer = 100;
+				} else if (enemies.every((e) => e.ko)) {
+					state = "clear";
+					stateTimer = 110;
+					finishLevel();
+					setTimeout(sfx.win, 500);
 				}
-				setTimeout(sfx.win, 500);
+			} else {
+				const loser = humans.find((h) => h.ko);
+				if (loser) {
+					const wi = loser === humans[0] ? 1 : 0;
+					score[wi]++;
+					state = "roundEnd";
+					stateTimer = 150;
+				}
 			}
 		} else if (state === "clear") {
-			if (stateTimer === 60) banner = { title: "Level cleared!", sub: "Next one's tougher", life: 80, max: 80 };
-			if (--stateTimer <= 0) startLevel(level + 1);
-		} else if (state === "over" && stateTimer > 0) {
 			if (--stateTimer === 0) {
-				overText.textContent = `Knocked out on level ${level}.` + (best > 0 ? ` Best: cleared level ${best}.` : "");
-				overEl.hidden = false;
-				document.getElementById("retry").focus();
+				state = "result";
+				show("cleared");
+			}
+		} else if (state === "over") {
+			if (--stateTimer === 0) {
+				state = "result";
+				$("over-text").textContent = `Knocked out on level ${level}.` + (save.best ? ` Best: cleared level ${save.best}.` : "");
+				show("over");
+			}
+		} else if (state === "roundEnd") {
+			if (stateTimer === 110) {
+				const winner = humans[1].ko ? "P1" : "P2";
+				banner = { title: `${winner} wins the round!`, sub: `${score[0]} - ${score[1]}`, life: 100, max: 100 };
+			}
+			if (--stateTimer === 0) {
+				if (Math.max(...score) >= 3) {
+					state = "result";
+					$("match-title").textContent = `${score[0] > score[1] ? "P1" : "P2"} wins!`;
+					$("match-text").textContent = `${score[0]} - ${score[1]}`;
+					show("match");
+				} else {
+					nextRound();
+				}
 			}
 		}
 	}
@@ -673,7 +1142,7 @@
 		}
 		for (let i = popups.length - 1; i >= 0; i--) {
 			const p = popups[i];
-			p.y -= 0.9;
+			if (!p.screen) p.y -= 0.9;
 			if (--p.life <= 0) popups.splice(i, 1);
 		}
 		if (banner && --banner.life <= 0) banner = null;
@@ -682,10 +1151,13 @@
 	}
 
 	/* ---------- Drawing ---------- */
-	const ctx = canvas.getContext("2d");
+	let ctx = canvas.getContext("2d");
 	let W = 0;
 	let H = 0;
 	let dpr = 1;
+	let view = { scale: 1, x: 0, y: 0 };
+	const cam = { x: WORLD_W / 2, w: WORLD_W };
+
 	function resize() {
 		dpr = Math.min(window.devicePixelRatio || 1, 2);
 		W = innerWidth;
@@ -695,12 +1167,12 @@
 		updateCamera(true);
 	}
 
-	const cam = { x: WORLD_W / 2, w: WORLD_W };
 	function updateCamera(snap) {
 		let tx = WORLD_W / 2;
 		let tw = WORLD_W;
-		if (player && state !== "menu") {
-			const xs = [player, ...enemies.filter((e) => !e.ko)].map((f) => f.torso.position.x);
+		const live = fighters.filter((f) => !f.ko);
+		if (state !== "menu" && live.length) {
+			const xs = live.map((f) => f.torso.position.x);
 			const lo = Math.min(...xs);
 			const hi = Math.max(...xs);
 			tx = (lo + hi) / 2;
@@ -742,16 +1214,10 @@
 	function drawWorld() {
 		for (const s of stars) {
 			ctx.globalAlpha = s.a;
-			ctx.fillStyle = "#dfe3ff";
-			ctx.beginPath();
-			ctx.arc(s.x, s.y, s.r, 0, TAU);
-			ctx.fill();
+			dot(s, s.r, "#dfe3ff");
 		}
 		ctx.globalAlpha = 1;
-		ctx.fillStyle = "rgba(255, 236, 190, 0.9)";
-		ctx.beginPath();
-		ctx.arc(1120, 150, 46, 0, TAU);
-		ctx.fill();
+		dot({ x: 1120, y: 150 }, 46, "rgba(255, 236, 190, 0.9)");
 		for (const pass of [true, false]) {
 			for (const b of buildings) {
 				if (b.far !== pass) continue;
@@ -771,7 +1237,6 @@
 		ctx.fillRect(-900, FLOOR_Y, WORLD_W + 1800, 8);
 		ctx.fillStyle = "#2e3672";
 		for (let x = -880; x < WORLD_W + 900; x += 120) ctx.fillRect(x, FLOOR_Y + 30, 60, 6);
-		// Railings at the edges
 		for (const x of [-18, WORLD_W + 2]) {
 			ctx.fillStyle = "#4a55a8";
 			ctx.fillRect(x, FLOOR_Y - 120, 16, 120);
@@ -795,6 +1260,37 @@
 	}
 
 	const OUT = "#0d1022";
+	// A weapon, drawn from where it's held (g) along its angle (a)
+	function drawWeaponAt(type, g, a) {
+		const t = WEAPONS[type];
+		const ax = { x: Math.sin(a), y: -Math.cos(a) };
+		const pp = { x: Math.cos(a), y: Math.sin(a) };
+		const Q = (d, o = 0) => ({ x: g.x + ax.x * (d - t.grip) + pp.x * o, y: g.y + ax.y * (d - t.grip) + pp.y * o });
+		const segs = [];
+		const dots = [];
+		if (type === "bat") {
+			segs.push([Q(3), Q(30), 8, "#a86f3a"], [Q(26), Q(40), 12, "#c98b4b"], [Q(36), Q(80), 16, "#c98b4b"]);
+			dots.push([Q(2), 6, "#a86f3a"]);
+		} else if (type === "plank") {
+			segs.push([Q(4), Q(106), 14, "#b07a45"]);
+		} else if (type === "sword") {
+			segs.push([Q(3), Q(18), 7, "#5b4a8b"], [Q(21, -13), Q(21, 13), 6, "#ffd23f"], [Q(26), Q(86), 11, "#dbe9ff"]);
+		} else if (type === "pan") {
+			segs.push([Q(3), Q(38), 8, "#3a3a4a"]);
+			dots.push([Q(58), 20, "#555b6e"]);
+		} else if (type === "hammer") {
+			segs.push([Q(3), Q(58), 9, "#c98b4b"], [Q(66, -8), Q(66, 8), 22, "#8e96b0"]);
+		}
+		ctx.lineCap = "round";
+		for (const [p1, p2, w] of segs) stroke(p1, p2, w + 5, OUT);
+		for (const [p, r] of dots) dot(p, r + 2.5, OUT);
+		for (const [p1, p2, w, c] of segs) stroke(p1, p2, w, c);
+		for (const [p, r, c] of dots) dot(p, r, c);
+		if (type === "pan") dot(Q(58), 14, "#6b7287");
+		if (type === "plank") for (const o of [-3.5, 3.5]) dot(Q(98, o), 1.8, "#cfd3e6");
+		if (type === "sword") dot(Q(3), 4.5, "#ffd23f");
+	}
+
 	function drawLimb(b, w, len, color, end, s, fc) {
 		const a = along(b, -len / 2 + w / 2);
 		const z = along(b, len / 2 - w / 2);
@@ -814,19 +1310,18 @@
 		ctx.lineCap = "round";
 		ctx.lineJoin = "round";
 
-		// Shadow on the roof
-		const lift = clamp((FLOOR_Y - f.torso.position.y) / 300, 0, 1);
-		ctx.fillStyle = `rgba(5, 6, 20, ${0.35 - lift * 0.2})`;
-		ctx.beginPath();
-		ctx.ellipse(f.torso.position.x, FLOOR_Y + 4, 34 * s * (1 - lift * 0.4), 7 * s, 0, 0, TAU);
-		ctx.fill();
+		if (!f.preview) {
+			const lift = clamp((FLOOR_Y - f.torso.position.y) / 300, 0, 1);
+			ctx.fillStyle = `rgba(5, 6, 20, ${0.35 - lift * 0.2})`;
+			ctx.beginPath();
+			ctx.ellipse(f.torso.position.x, FLOOR_Y + 4, 34 * s * (1 - lift * 0.4), 7 * s, 0, 0, TAU);
+			ctx.fill();
+		}
 
-		const back = 1;
-		const front = 0;
-		drawLimb(f.legs[back].u, 15 * s, 36 * s, dk, null, s, fc);
-		drawLimb(f.legs[back].l, 13 * s, 38 * s, dk, "foot", s, fc);
-		drawLimb(f.arms[back].u, 13 * s, 32 * s, dk, null, s, fc);
-		drawLimb(f.arms[back].l, 11 * s, 32 * s, dk, "fist", s, fc);
+		drawLimb(f.legs[1].u, 15 * s, 36 * s, dk, null, s, fc);
+		drawLimb(f.legs[1].l, 13 * s, 38 * s, dk, "foot", s, fc);
+		drawLimb(f.arms[1].u, 13 * s, 32 * s, dk, null, s, fc);
+		drawLimb(f.arms[1].l, 11 * s, 32 * s, dk, "fist", s, fc);
 
 		// Body, with darker shorts
 		const T = f.torso;
@@ -836,35 +1331,72 @@
 		stroke(top, bot, 26 * s, col);
 		stroke(along(T, 14 * s), bot, 26 * s, dk);
 
-		drawLimb(f.legs[front].u, 15 * s, 36 * s, col, null, s, fc);
-		drawLimb(f.legs[front].l, 13 * s, 38 * s, col, "foot", s, fc);
+		drawLimb(f.legs[0].u, 15 * s, 36 * s, col, null, s, fc);
+		drawLimb(f.legs[0].l, 13 * s, 38 * s, col, "foot", s, fc);
 		drawHead(f, col, dk);
-		drawLimb(f.arms[front].u, 13 * s, 32 * s, col, null, s, fc);
-		drawLimb(f.arms[front].l, 11 * s, 32 * s, col, "fist", s, fc);
+		if (f.weapon) {
+			const w = f.weapon;
+			if (w.body) drawWeaponAt(w.type, gripOf(w), w.body.angle);
+			else drawWeaponAt(w.type, along(f.arms[0].l, 16 * s), f.arms[0].l.angle + Math.PI);
+		}
+		drawLimb(f.arms[0].u, 13 * s, 32 * s, col, null, s, fc);
+		drawLimb(f.arms[0].l, 11 * s, 32 * s, col, "fist", s, fc);
 	}
 
-	function drawHead(f, col, dk) {
+	function drawHat(f, h, r, dk) {
 		const s = f.s;
 		const fc = f.facing;
-		const h = f.head.position;
-		const r = 17 * s;
-		dot(h, r + 2.5, OUT);
-		dot(h, r, col);
-
-		if (f.look === "band") {
+		const look = f.look;
+		ctx.strokeStyle = OUT;
+		ctx.lineWidth = 2.5;
+		if (look === "band") {
 			ctx.save();
 			ctx.beginPath();
 			ctx.arc(h.x, h.y, r, 0, TAU);
 			ctx.clip();
-			ctx.fillStyle = "#ffffff";
+			ctx.fillStyle = f.band;
 			ctx.fillRect(h.x - r, h.y - r * 0.62, r * 2, r * 0.32);
 			ctx.restore();
 			const tail = { x: h.x - fc * r * 1.05, y: h.y - r * 0.45 };
-			stroke(tail, { x: tail.x - fc * 13 * s, y: tail.y + 7 * s + Math.sin(performance.now() / 120) * 3 }, 4 * s, "#ffffff");
-		} else if (f.look === "crown") {
+			const wave = f.preview ? 0 : Math.sin(performance.now() / 120) * 3;
+			stroke(tail, { x: tail.x - fc * 13 * s, y: tail.y + 7 * s + wave }, 4 * s, f.band);
+		} else if (look === "cap" || look === "beanie") {
+			ctx.fillStyle = f.hat;
+			ctx.beginPath();
+			ctx.arc(h.x, h.y - r * 0.32, r * 1.0, Math.PI, 0);
+			ctx.closePath();
+			ctx.fill();
+			ctx.stroke();
+			if (look === "cap") {
+				stroke({ x: h.x + fc * r * 0.3, y: h.y - r * 0.34 }, { x: h.x + fc * r * 1.4, y: h.y - r * 0.28 }, 5 * s + 4, OUT);
+				stroke({ x: h.x + fc * r * 0.3, y: h.y - r * 0.34 }, { x: h.x + fc * r * 1.4, y: h.y - r * 0.28 }, 5 * s, f.hat);
+			} else {
+				ctx.fillStyle = dk;
+				ctx.fillRect(h.x - r, h.y - r * 0.5, r * 2, r * 0.22);
+				dot({ x: h.x, y: h.y - r * 1.38 }, r * 0.3 + 2, OUT);
+				dot({ x: h.x, y: h.y - r * 1.38 }, r * 0.3, f.hat);
+			}
+		} else if (look === "party") {
+			ctx.fillStyle = f.hat;
+			ctx.beginPath();
+			ctx.moveTo(h.x - r * 0.6, h.y - r * 0.72);
+			ctx.lineTo(h.x + r * 0.6, h.y - r * 0.72);
+			ctx.lineTo(h.x - fc * r * 0.2, h.y - r * 2.05);
+			ctx.closePath();
+			ctx.fill();
+			ctx.stroke();
+			dot({ x: h.x - fc * r * 0.2, y: h.y - r * 2.05 }, r * 0.22 + 2, OUT);
+			dot({ x: h.x - fc * r * 0.2, y: h.y - r * 2.05 }, r * 0.22, "#ffffff");
+		} else if (look === "tophat") {
+			ctx.fillStyle = f.hat;
+			ctx.fillRect(h.x - r * 0.62, h.y - r * 1.95, r * 1.24, r * 1.2);
+			ctx.strokeRect(h.x - r * 0.62, h.y - r * 1.95, r * 1.24, r * 1.2);
+			ctx.fillStyle = "#ff4d6d";
+			ctx.fillRect(h.x - r * 0.62, h.y - r * 0.98, r * 1.24, r * 0.2);
+			stroke({ x: h.x - r * 1.0, y: h.y - r * 0.72 }, { x: h.x + r * 1.0, y: h.y - r * 0.72 }, 5 * s + 4, OUT);
+			stroke({ x: h.x - r * 1.0, y: h.y - r * 0.72 }, { x: h.x + r * 1.0, y: h.y - r * 0.72 }, 5 * s, f.hat);
+		} else if (look === "crown") {
 			ctx.fillStyle = "#ffd23f";
-			ctx.strokeStyle = OUT;
-			ctx.lineWidth = 2.5;
 			ctx.beginPath();
 			const by = h.y - r * 0.7;
 			ctx.moveTo(h.x - r * 0.75, by);
@@ -877,7 +1409,7 @@
 			ctx.closePath();
 			ctx.fill();
 			ctx.stroke();
-		} else if (f.look === "spikes") {
+		} else if (look === "spikes") {
 			ctx.fillStyle = dk;
 			for (let i = -1; i <= 1; i++) {
 				ctx.beginPath();
@@ -887,21 +1419,28 @@
 				ctx.fill();
 			}
 		}
+	}
+
+	function drawHead(f, col, dk) {
+		const s = f.s;
+		const fc = f.facing;
+		const h = f.head.position;
+		const r = 17 * s;
+		dot(h, r + 2.5, OUT);
+		dot(h, r, col);
+		drawHat(f, h, r, dk);
 
 		// Face looks toward where the fighter is aiming
 		const look = norm(f.aim.x - h.x, f.aim.y - h.y);
 		const eyes = [{ x: h.x + fc * r * 0.12, y: h.y - r * 0.12 }, { x: h.x + fc * r * 0.58, y: h.y - r * 0.12 }];
-		ctx.lineWidth = 2.6 * s;
-		ctx.strokeStyle = OUT;
+		const d = 3.6 * s;
 		if (f.ko) {
 			for (const e of eyes) {
-				const d = 3.6 * s;
 				stroke({ x: e.x - d, y: e.y - d }, { x: e.x + d, y: e.y + d }, 2.6 * s, OUT);
 				stroke({ x: e.x + d, y: e.y - d }, { x: e.x - d, y: e.y + d }, 2.6 * s, OUT);
 			}
 		} else if (f.hurt > 0 || f.stun > 0) {
 			for (const [i, e] of eyes.entries()) {
-				const d = 3.6 * s;
 				const dir = i ? 1 : -1;
 				stroke({ x: e.x - dir * d, y: e.y - d }, { x: e.x + dir * d, y: e.y }, 2.6 * s, OUT);
 				stroke({ x: e.x + dir * d, y: e.y }, { x: e.x - dir * d, y: e.y + d }, 2.6 * s, OUT);
@@ -943,7 +1482,9 @@
 		ctx.font = "800 14px system-ui, 'Segoe UI', sans-serif";
 		ctx.textAlign = alignRight ? "right" : "left";
 		ctx.textBaseline = "bottom";
-		ctx.fillText(f.ko ? `${f.name} · K.O.` : f.name, alignRight ? x + w : x, y - 5);
+		let label = f.ko ? `${f.name} · K.O.` : f.name;
+		if (f.weapon && !f.ko) label += ` · ${f.weapon.t.name}`;
+		ctx.fillText(label, alignRight ? x + w : x, y - 5);
 	}
 
 	function outlinedText(text, x, y, size, color, align) {
@@ -966,11 +1507,10 @@
 		const k = view.scale * dpr;
 		ctx.setTransform(k, 0, 0, k, (view.x + sx) * dpr, (view.y + sy) * dpr);
 		drawWorld();
-		if (player) {
-			for (const e of enemies) if (e.ko) drawFighter(e);
-			for (const e of enemies) if (!e.ko) drawFighter(e);
-			drawFighter(player);
-		}
+		for (const w of weapons) if (!w.holder) drawWeaponAt(w.type, gripOf(w), w.body.angle);
+		for (const f of fighters) if (f.ko) drawFighter(f);
+		for (const f of fighters) if (!f.ko && !humans.includes(f)) drawFighter(f);
+		for (const f of humans) if (!f.ko) drawFighter(f);
 		for (const p of particles) {
 			ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
 			dot(p, p.size, p.color);
@@ -982,37 +1522,144 @@
 			outlinedText(p.text, p.x, p.y, p.size, p.color);
 		}
 		ctx.globalAlpha = 1;
-		if (state === "fight" && mouse.active && performance.now() - mouse.movedAt < 4000) {
-			ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-			ctx.lineWidth = 2.5;
-			ctx.beginPath();
-			ctx.arc(mouse.x, mouse.y, 11, 0, TAU);
-			ctx.stroke();
-			dot(mouse, 2.5, "#ffffff");
-		}
 
 		// Screen-space HUD
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-		if (player && state !== "menu") {
+		if (state !== "menu" && humans.length) {
 			const w = Math.min(280, W * 0.32);
-			bar(18, 34, w, player, false);
-			enemies.forEach((e, i) => bar(W - 18 - w, 34 + i * 40, w, e, true));
-			outlinedText(`LEVEL ${level}`, W / 2, 30, 22, "#ffffff");
+			bar(18, 34, w, humans[0], false);
+			const right = mode === "duo" ? [humans[1]] : enemies;
+			right.forEach((e, i) => bar(W - 18 - w, 34 + i * 40, w, e, true));
+			if (mode === "solo") {
+				outlinedText(`LEVEL ${level}`, W / 2, 30, 22, "#ffffff");
+				outlinedText(`${save.coins} coins`, W / 2, 56, 15, "#ffd23f");
+			} else {
+				outlinedText(`ROUND ${round}`, W / 2, 30, 22, "#ffffff");
+				outlinedText(`${score[0]} - ${score[1]}`, W / 2, 58, 20, "#ffd23f");
+			}
+		}
+		if (hintT > 0 && state === "fight") {
+			ctx.globalAlpha = clamp(hintT / 40, 0, 1);
+			const text = mode === "duo" ? "P1: A D move + hit · W jump · S kick · Space grab      P2: ← → move + hit · ↑ jump · ↓ kick · Enter grab" : "A D: move + hit   ·   W: jump   ·   S: kick   ·   Space: grab or throw a weapon";
+			outlinedText(text, W / 2, H - 28, Math.min(18, W / 48), "#ffffff");
+			ctx.globalAlpha = 1;
 		}
 		if (banner) {
 			const t = banner.life / banner.max;
 			ctx.globalAlpha = clamp(Math.min(t * 4, (1 - t) * 8), 0, 1);
-			const size = Math.min(84, W / 9);
-			outlinedText(banner.title, W / 2, H * 0.32, size, "#ffd23f");
-			outlinedText(banner.sub, W / 2, H * 0.32 + size * 0.85, size * 0.38, "#ffffff");
+			const size = Math.min(84, W / 10);
+			outlinedText(banner.title, W / 2, H * 0.3, size, "#ffd23f");
+			outlinedText(banner.sub, W / 2, H * 0.3 + size * 0.85, size * 0.38, "#ffffff");
 			ctx.globalAlpha = 1;
 		}
 		for (const p of popups) {
 			if (!p.screen) continue;
 			ctx.globalAlpha = clamp(p.life / 20, 0, 1);
-			outlinedText(p.text, W / 2, 84, p.size, p.color);
+			outlinedText(p.text, W / 2, 96, p.size, p.color);
 		}
 		ctx.globalAlpha = 1;
+	}
+
+	/* ---------- Shop ---------- */
+	// A standing fighter in a skin, for the shop's pictures (same drawing as in the game)
+	function posed(skin) {
+		const P = (x, y, angle) => ({ position: { x, y }, angle });
+		const dir = (a) => ({ x: -Math.sin(a), y: Math.cos(a) });
+		const pair = (jx, jy, a1, h1, a2, h2) => {
+			const d1 = dir(a1);
+			const c1 = { x: jx + d1.x * h1, y: jy + d1.y * h1 };
+			const k = { x: c1.x + d1.x * h1, y: c1.y + d1.y * h1 };
+			const d2 = dir(a2);
+			return [P(c1.x, c1.y, a1), P(k.x + d2.x * h2, k.y + d2.y * h2, a2)];
+		};
+		const arm = (a, b) => { const [u, l] = pair(0, -24, a, 11, b, 11); return { u, l }; };
+		const leg = (a, b) => { const [u, l] = pair(0, 25, a, 13, b, 14); return { u, l }; };
+		const t1 = angleFor(0.14, 1);
+		const t2 = angleFor(-0.12, 1);
+		return {
+			preview: true, s: 1, facing: 1, flash: 0, ko: false, hurt: 0, stun: 0, weapon: null,
+			color: skin.color, dark: skin.dark, look: skin.look, band: skin.band, hat: skin.hat,
+			torso: P(0, 0, 0), head: P(0, -46, 0), aim: { x: 200, y: -46 },
+			arms: [arm(angleFor(0.55, 0.8), angleFor(0.5, -0.9)), arm(angleFor(0.3, 0.8), angleFor(0.62, -0.9))],
+			legs: [leg(t1, t1 + 0.12), leg(t2, t2 + 0.12)],
+		};
+	}
+
+	function paintPreview(cv, draw) {
+		const r = Math.min(window.devicePixelRatio || 1, 2);
+		cv.width = 96 * r;
+		cv.height = 96 * r;
+		const saved = ctx;
+		ctx = cv.getContext("2d");
+		ctx.setTransform(r, 0, 0, r, 0, 0);
+		ctx.lineCap = "round";
+		ctx.lineJoin = "round";
+		draw();
+		ctx = saved;
+	}
+
+	function shopItem(kind, id, name, price) {
+		const owned = kind === "skin" ? save.skins.includes(id) : id === null || save.weapons.includes(id);
+		const on = kind === "skin" ? save.skin === id : save.weapon === id;
+		const btn = document.createElement("button");
+		btn.type = "button";
+		btn.className = "item" + (on ? " on" : "");
+		const cv = document.createElement("canvas");
+		const nameEl = document.createElement("span");
+		nameEl.className = "item-name";
+		nameEl.textContent = name;
+		const tagEl = document.createElement("span");
+		tagEl.className = "item-tag" + (owned ? "" : " price");
+		tagEl.textContent = on ? "Using" : owned ? "Owned · tap to use" : `${price} coins`;
+		btn.append(cv, nameEl, tagEl);
+		paintPreview(cv, () => {
+			if (kind === "skin") {
+				ctx.translate(48, 52);
+				ctx.scale(0.5, 0.5);
+				drawFighter(posed(skinById(id)));
+			} else if (id) {
+				const t = WEAPONS[id];
+				const sc = 80 / t.len;
+				const a = 0.75;
+				ctx.translate(48, 48);
+				ctx.scale(sc, sc);
+				const ax = { x: Math.sin(a), y: -Math.cos(a) };
+				const mid = t.len / 2 - t.grip;
+				drawWeaponAt(id, { x: -ax.x * mid, y: -ax.y * mid }, a);
+			} else {
+				dot({ x: 48, y: 50 }, 22, OUT);
+				dot({ x: 48, y: 50 }, 19, "#2de0c0");
+				stroke({ x: 36, y: 44 }, { x: 58, y: 44 }, 3, OUT);
+				stroke({ x: 38, y: 54 }, { x: 56, y: 54 }, 3, OUT);
+			}
+		});
+		btn.addEventListener("click", () => {
+			if (!owned) {
+				if (save.coins < price) {
+					tagEl.textContent = `Need ${price - save.coins} more`;
+					tagEl.className = "item-tag short";
+					btn.classList.remove("nope");
+					void btn.offsetWidth;
+					btn.classList.add("nope");
+					return;
+				}
+				save.coins -= price;
+				if (kind === "skin") save.skins.push(id);
+				else save.weapons.push(id);
+				sfx.coin();
+			}
+			if (kind === "skin") save.skin = id;
+			else save.weapon = id;
+			persist();
+			renderShop();
+		});
+		return btn;
+	}
+
+	function renderShop() {
+		$("shop-coins").textContent = `${save.coins} coins`;
+		$("shop-weapons").replaceChildren(shopItem("weapon", null, "Fists", 0), ...WEAPON_IDS.map((id) => shopItem("weapon", id, WEAPONS[id].name, WEAPONS[id].price)));
+		$("shop-skins").replaceChildren(...SKINS.map((k) => shopItem("skin", k.id, k.name, k.price)));
 	}
 
 	/* ---------- Main loop ---------- */
@@ -1032,8 +1679,7 @@
 		requestAnimationFrame(frame);
 	}
 
-	showBest();
-	setup(1, true); // fighters wobble behind the menu
+	toMenu();
 	resize();
 	requestAnimationFrame(frame);
 
@@ -1041,10 +1687,12 @@
 	window.__wobbleBrawl = {
 		startAt: (n) => startLevel(Math.max(1, Math.floor(n) || 1)),
 		peek: () => ({
-			state, level, best,
-			player: player && { hp: player.hp, ko: player.ko, x: player.torso.position.x, y: player.torso.position.y, angle: player.torso.angle, headY: player.head.position.y, grounded: player.grounded },
-			enemies: enemies.map((e) => ({ name: e.name, hp: e.hp, ko: e.ko, x: e.torso.position.x, y: e.torso.position.y, headX: e.head.position.x, headY: e.head.position.y, angle: e.torso.angle })),
-			view,
+			state, mode, level, round, score: [...score], coins: save.coins, skin: save.skin, weapon: save.weapon, view,
+			fighters: fighters.map((f) => ({
+				name: f.name, team: f.team, hp: f.hp, ko: f.ko, x: f.torso.position.x, y: f.torso.position.y, angle: f.torso.angle,
+				headX: f.head.position.x, headY: f.head.position.y, grounded: f.grounded, weapon: f.weapon ? f.weapon.type : null,
+			})),
+			weapons: weapons.map((w) => ({ type: w.type, held: !!w.holder, x: w.body.position.x, y: w.body.position.y })),
 		}),
 	};
 })();

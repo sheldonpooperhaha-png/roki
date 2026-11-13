@@ -6,23 +6,48 @@
 <title>Wobble Brawl</title>
 <style>
 	html, body { margin: 0; height: 100%; background: #0b1030; color: #f3f4ff; font-family: system-ui, "Segoe UI", Roboto, sans-serif; overflow: hidden; user-select: none; -webkit-user-select: none; }
-	canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
-	.screen { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(8, 10, 32, 0.62); padding: 16px; box-sizing: border-box; }
-	.card { max-width: 560px; width: 100%; text-align: center; }
+	canvas#game { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
+	.screen { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(8, 10, 32, 0.62); padding: 16px; box-sizing: border-box; overflow-y: auto; }
+	.card { max-width: 600px; width: 100%; text-align: center; }
 	.title { margin: 0; font-size: clamp(46px, 9vw, 88px); font-weight: 900; line-height: 0.95; letter-spacing: 0.01em; color: #fff;
 		text-shadow: 4px 4px 0 #13a38b, 8px 8px 0 #0d1022; transform: rotate(-3deg); }
 	.title span { display: inline-block; color: #ffd23f; text-shadow: 4px 4px 0 #c4501f, 8px 8px 0 #0d1022; }
-	.tag { margin: 22px 0 18px; font-size: 18px; color: #c9cdf2; }
+	.tag { margin: 20px 0 16px; font-size: 18px; color: #c9cdf2; }
 	.big { margin: 0 0 6px; font-size: clamp(34px, 6vw, 54px); font-weight: 900; color: #fff; text-shadow: 3px 3px 0 #0d1022; }
 	.sub { margin: 0 0 18px; font-size: 18px; color: #c9cdf2; }
-	.controls { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; text-align: left; margin: 0 auto 22px; max-width: 420px; font-size: 15px; color: #c9cdf2; }
+	.controls { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; text-align: left; margin: 0 auto 20px; max-width: 420px; font-size: 15px; color: #c9cdf2; }
 	.controls b { color: #fff; font-weight: 700; white-space: nowrap; }
-	button { font: inherit; font-size: 22px; font-weight: 900; color: #0d1022; background: #2de0c0; border: 0; border-radius: 14px; padding: 14px 34px; cursor: pointer;
+	.row { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+	button.btn { font: inherit; font-size: 20px; font-weight: 900; color: #0d1022; background: #2de0c0; border: 0; border-radius: 14px; padding: 13px 28px; cursor: pointer;
 		box-shadow: 0 5px 0 #13a38b, 0 9px 0 #0d1022; transition: transform 0.06s; }
-	button:hover { background: #5cf0d6; }
-	button:active { transform: translateY(4px); box-shadow: 0 1px 0 #13a38b, 0 4px 0 #0d1022; }
+	button.btn:hover { background: #5cf0d6; }
+	button.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #13a38b, 0 4px 0 #0d1022; }
+	button.btn.alt { background: #ffd23f; box-shadow: 0 5px 0 #c99a06, 0 9px 0 #0d1022; }
+	button.btn.alt:hover { background: #ffe07a; }
+	button.btn.plain { background: #3a4380; color: #fff; box-shadow: 0 5px 0 #262d63, 0 9px 0 #0d1022; }
+	button.btn.plain:hover { background: #4a55a8; }
 	button:focus-visible { outline: 3px solid #ffd23f; outline-offset: 4px; }
 	.hint { margin-top: 18px; font-size: 14px; color: #8f95c8; }
+	.coins { color: #ffd23f; font-weight: 800; }
+
+	#shop .card { max-width: 820px; }
+	.shop-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+	.shop-head .big { margin: 0; }
+	.shop-coins { font-size: 22px; }
+	.shop-section { margin: 16px 0 8px; text-align: left; font-size: 18px; font-weight: 800; color: #fff; }
+	.shop-note { margin: -4px 0 10px; text-align: left; font-size: 14px; color: #8f95c8; }
+	.items { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 12px; }
+	button.item { font: inherit; color: #f3f4ff; background: #1c2357; border: 3px solid #2c3473; border-radius: 16px; padding: 8px 8px 10px; cursor: pointer;
+		display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+	button.item:hover { border-color: #4a55a8; }
+	button.item.on { border-color: #2de0c0; background: #183a55; }
+	button.item canvas { width: 96px; height: 96px; }
+	.item-name { font-weight: 800; font-size: 15px; }
+	.item-tag { font-size: 13px; color: #c9cdf2; }
+	.item-tag.price { color: #ffd23f; font-weight: 800; }
+	.item-tag.short { color: #ff8fa3; }
+	button.item.nope { animation: nope 0.3s; }
+	@keyframes nope { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 	[hidden] { display: none !important; }
 </style>
 </head>
@@ -32,16 +57,32 @@
 <div class="screen" id="menu">
 	<div class="card">
 		<h1 class="title">WOBBLE<br><span>BRAWL</span></h1>
-		<p class="tag">Knock out every wobbly fighter on the roof. Don't get knocked out.</p>
+		<p class="tag">Knock out every wobbly fighter on the roof. Grab weapons, win coins, buy new gear.</p>
 		<div class="controls">
-			<b>A D or ← →</b><span>Move</span>
-			<b>W, ↑ or Space</b><span>Jump</span>
-			<b>Click or J</b><span>Punch (aims at your mouse)</span>
-			<b>Right-click or K</b><span>Kick</span>
+			<b>A D or ← →</b><span>Move and hit (tap toward an enemy to punch)</span>
+			<b>W or ↑</b><span>Jump</span>
+			<b>S or ↓</b><span>Kick</span>
+			<b>Space</b><span>Grab a weapon, press again to throw it</span>
 			<b>Esc · M</b><span>Pause · Sound on/off</span>
 		</div>
-		<button type="button" id="play">Fight!</button>
-		<p class="hint" id="menu-best"></p>
+		<div class="row">
+			<button type="button" class="btn" id="play" data-primary>1 Player</button>
+			<button type="button" class="btn alt" id="duo">2 Players</button>
+			<button type="button" class="btn plain" id="menu-shop">Shop</button>
+		</div>
+		<p class="hint" id="menu-info"></p>
+		<p class="hint">2 players on one keyboard: P1 uses A D W S + Space, P2 uses the arrow keys + Enter.</p>
+	</div>
+</div>
+
+<div class="screen" id="cleared" hidden>
+	<div class="card">
+		<p class="big" id="cleared-title">Level cleared!</p>
+		<p class="sub" id="cleared-text"></p>
+		<div class="row">
+			<button type="button" class="btn" id="next" data-primary>Next level</button>
+			<button type="button" class="btn plain" id="cleared-shop">Shop</button>
+		</div>
 	</div>
 </div>
 
@@ -49,16 +90,50 @@
 	<div class="card">
 		<p class="big">Wobbled!</p>
 		<p class="sub" id="over-text"></p>
-		<button type="button" id="retry">Try again</button>
-		<p class="hint">or press Space</p>
+		<div class="row">
+			<button type="button" class="btn" id="retry" data-primary>Try again</button>
+			<button type="button" class="btn plain" id="over-shop">Shop</button>
+			<button type="button" class="btn plain" id="over-menu">Menu</button>
+		</div>
+	</div>
+</div>
+
+<div class="screen" id="match" hidden>
+	<div class="card">
+		<p class="big" id="match-title">P1 wins!</p>
+		<p class="sub" id="match-text"></p>
+		<div class="row">
+			<button type="button" class="btn" id="rematch" data-primary>Rematch</button>
+			<button type="button" class="btn plain" id="match-menu">Menu</button>
+		</div>
 	</div>
 </div>
 
 <div class="screen" id="paused" hidden>
 	<div class="card">
 		<p class="big">Paused</p>
-		<button type="button" id="resume">Keep fighting</button>
+		<div class="row">
+			<button type="button" class="btn" id="resume" data-primary>Keep fighting</button>
+			<button type="button" class="btn plain" id="quit">Quit to menu</button>
+		</div>
 		<p class="hint">or press Esc</p>
+	</div>
+</div>
+
+<div class="screen" id="shop" hidden>
+	<div class="card">
+		<div class="shop-head">
+			<p class="big">Shop</p>
+			<span class="shop-coins coins" id="shop-coins"></span>
+		</div>
+		<p class="shop-section">Weapons</p>
+		<p class="shop-note">You start every level holding the one you pick. You can also grab weapons lying on the roof.</p>
+		<div class="items" id="shop-weapons"></div>
+		<p class="shop-section">Skins</p>
+		<div class="items" id="shop-skins"></div>
+		<div class="row" style="margin-top:20px">
+			<button type="button" class="btn" id="shop-done" data-primary>Done</button>
+		</div>
 	</div>
 </div>
 
