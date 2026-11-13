@@ -136,24 +136,33 @@
 				</main>
 
 				<main class="page page-chat" id="chat-main" hidden>
-					<h1 class="page-title">Chat</h1>
-					<section class="chat-box" aria-label="Chatroom">
-						<div class="chat-head">
-							<span class="chat-online" id="chat-online">Connecting…</span>
-							<span class="chat-me" id="chat-me"></span>
-						</div>
-						<ol class="chat-log" id="chat-log" aria-label="Messages" aria-live="polite"></ol>
-						<p class="chat-empty" id="chat-empty" hidden>No messages yet. Say hi!</p>
-						<button class="chat-jump" type="button" id="chat-jump" hidden>New messages ↓</button>
-						<form class="chat-form" id="chat-form">
-							<div class="chat-row">
-								<input class="chat-input" id="chat-input" maxlength="300" placeholder="Message everyone" autocomplete="off" aria-label="Message">
-								<button class="chat-send" type="submit" id="chat-send">Send</button>
+					<section class="chat-box" aria-labelledby="chat-title">
+						<header class="chat-head">
+							<span class="chat-hash" aria-hidden="true">#</span>
+							<div class="chat-heading">
+								<h1 class="chat-title" id="chat-title">roki-chat</h1>
+								<p class="chat-sub" id="chat-me">Everyone with a ROKI account. The last 200 messages are kept.</p>
 							</div>
+							<span class="chat-online" id="chat-online">Connecting…</span>
+						</header>
+						<div class="chat-scroll" id="chat-scroll">
+							<div class="chat-empty" id="chat-empty" hidden>
+								<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z"/><path d="M9 11h.01M12 11h.01M15 11h.01"/></svg>
+								<p class="chat-empty-title">No messages yet</p>
+								<p class="chat-empty-text">Say hi to everyone on ROKI.</p>
+							</div>
+							<ol class="chat-log" id="chat-log" aria-label="Messages" aria-live="polite"></ol>
+						</div>
+						<button class="chat-jump" type="button" id="chat-jump" hidden>New messages <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button>
+						<form class="chat-form" id="chat-form">
+							<div class="chat-bar">
+								<input class="chat-input" id="chat-input" maxlength="300" placeholder="Message #roki-chat" autocomplete="off" aria-label="Message">
+								<span class="chat-count" id="chat-count" hidden></span>
+								<button class="chat-send" type="submit" id="chat-send" aria-label="Send" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+							</div>
+							<p class="chat-status" id="chat-status" role="status"></p>
 						</form>
-						<p class="chat-status" id="chat-status" role="status"></p>
 					</section>
-					<p class="page-empty chat-note">Only people with a ROKI account can read this chat. The last 200 messages are kept.</p>
 				</main>
 
 				<main class="page page-settings" id="settings-main" hidden>
