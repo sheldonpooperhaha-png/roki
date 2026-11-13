@@ -159,7 +159,7 @@
 	const viewport = $("viewport");
 	const home = $("home");
 	const pageEls ={ home: $("home-main"), games: $("games-main"), apps: $("apps-main"), media: $("media-main"), chat: $("chat-main"), settings: $("settings-main"), admin: $("admin-main") };
-	const navLinks = [...document.querySelectorAll(".topnav-link")];
+	const navLinks = [...document.querySelectorAll(".dock-link")];
 	const addr = $("addr");
 	const q = $("q");
 	const errorEl = $("error");
@@ -698,7 +698,7 @@
 	}
 
 
-	/* ---------- Clock (top bar) and date (home page) ---------- */
+	/* ---------- Clock (dock) and date (home page) ---------- */
 	const clockEl = $("clock");
 	const dateEl = $("hero-date");
 	const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
