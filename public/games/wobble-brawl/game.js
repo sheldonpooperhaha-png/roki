@@ -104,7 +104,8 @@
 
 	/* ---------- Physics world ---------- */
 	const engine = Engine.create({ positionIterations: 10, velocityIterations: 8, constraintIterations: 6 });
-	engine.gravity.y = 1.15;
+	engine.gravity.y = 0.85;
+	const G_STEP = 0.85 * 0.001 * STEP * STEP; // how much speed gravity adds per step
 	const world = engine.world;
 	const wall = { isStatic: true, friction: 0.9, restitution: 0.1 };
 	Composite.add(world, [
@@ -140,7 +141,7 @@
 			flashColor: lighten(t.color, 0.6), flashDark: lighten(t.dark, 0.6),
 			torso, head, arms: [], legs: [], bodies: [torso, head], joints: [],
 			move: 0, aim: { x: x + facing * 200, y: ty - 46 * s }, grounded: true, weapon: null, equip: null, equipT: 0,
-			stepT: 0, stepLeg: 0, crouch: 0, reach: null, throwT: 0,
+			stepT: 0, stepLeg: 0, crouch: 0, reach: null, throwT: 0, lungeT: 0, lungeCool: 0, airLunges: 0, lungeStrike: false, lungeArm: 0, trail: [], swingTrail: [],
 			stun: 0, ko: false, flash: 0, hurt: 0, phase: 0, cool: 0, kcool: 0, jcool: 0, slamCool: 0, nextArm: 0,
 			ai: { timer: 30, err: { x: 0, y: 0 }, want: null, target: null },
 		};
@@ -347,7 +348,7 @@
 			let vy = v.y;
 			if (f.grounded) {
 				const dy = FLOOR_Y - 80 * s + f.crouch - T.position.y; // > 0: torso is above standing height
-				if (dy < 8 * s) vy += (dy * 0.085 - v.y * 0.2 - 0.62) * str;
+				if (dy < 8 * s) vy += (dy * 0.085 - v.y * 0.2 - 0.47) * str;
 			}
 			let vx = v.x;
 			if (f.move) vx += (f.move * f.speed - v.x) * (f.grounded ? 0.13 : 0.03) * str;
@@ -369,8 +370,9 @@
 
 		// Lean into the walk and into punches; the body sways because the hold is loose
 		const punching = f.arms.some((a) => a.t > 0);
-		const lean = reachLean || f.move * 0.2 + (punching ? fc * 0.16 : 0);
-		turnTo(T, lean, 0.18 * str, 0.22 * str);
+		const lean = f.lungeT > 14 ? fc * 0.7 : reachLean || f.move * 0.2 + (punching ? fc * 0.16 : 0);
+		const air = f.grounded ? 1 : 0.25; // in the air the body tumbles, on the ground it rights itself
+		turnTo(T, lean, (f.lungeT > 14 ? 0.12 : 0.18 * air) * str, 0.22 * air * str);
 		turnTo(f.head, T.angle * 0.5, 0.14 * str, 0.14 * str);
 
 		// Legs: walk cycle on the ground, tucked in the air, a straight leg when kicking
@@ -380,7 +382,7 @@
 		f.legs.forEach((leg, i) => {
 			let ta;
 			let sa;
-			let k = 0.22;
+			let k = f.grounded ? 0.22 : 0.1;
 			if (leg.t > 0) {
 				const h = hip(f);
 				const d = norm(f.aim.x - h.x, clamp(f.aim.y - h.y, -90 * s, 10 * s));
@@ -417,12 +419,17 @@
 				if (arm.t > 0) {
 					const p = 1 - arm.t / SWING;
 					const start = angleFor(-fc * 0.45, -1);
-					const end = angleFor(fc, 0.45);
+					// Sweep over the top and finish pointing at the target, with a little follow-through
+					const sh = shoulder(f);
+					const to = norm(f.aim.x - sh.x, f.aim.y - sh.y);
+					const end = angleFor(to.x, to.y) + fc * 0.35;
+					let sweep = fc > 0 ? (((end - start) % TAU) + TAU) % TAU : -((((start - end) % TAU) + TAU) % TAU);
+					sweep = clamp(sweep, -3.6, 3.6);
 					const e = p < 0.3 ? 0 : Math.min(1, (p - 0.3) / 0.4);
-					ua = la = start + wrap(end - start) * e;
+					ua = la = start + sweep * e;
 					k = 0.7;
 					if (arm.t === Math.round(SWING * 0.7) && str > 0) {
-						const dir = Math.sign(wrap(end - start));
+						const dir = Math.sign(sweep) || fc;
 						Body.setAngularVelocity(f.weapon.body, dir * 0.42);
 						Body.setAngularVelocity(arm.l, dir * 0.35);
 					}
@@ -439,7 +446,7 @@
 			} else {
 				ua = angleFor(fc * (i ? 0.3 : 0.55), 0.8);
 				la = angleFor(fc * (i ? 0.62 : 0.5), -0.9);
-				k = 0.13;
+				k = f.grounded ? 0.13 : 0.06;
 			}
 			turnTo(arm.u, ua, k * str, 0.3 * str);
 			turnTo(arm.l, la, k * str, 0.3 * str);
@@ -461,7 +468,7 @@
 				let vy = -3;
 				if (opp && (opp.torso.position.x - hand.x) * fc > 0) {
 					const steps = Math.max(4, Math.abs(opp.torso.position.x - hand.x) / SPEED);
-					vy = clamp((opp.torso.position.y - 10 * opp.s - hand.y) / steps - 0.5 * 0.32 * steps, -12, 6);
+					vy = clamp((opp.torso.position.y - 10 * opp.s - hand.y) / steps - 0.5 * G_STEP * steps, -12, 6);
 				}
 				Body.setVelocity(w.body, { x: fc * SPEED, y: vy });
 				Body.setAngularVelocity(w.body, fc * 0.3);
@@ -480,6 +487,24 @@
 		for (const a of f.arms) if (a.t > 0) a.t--;
 		for (const l of f.legs) if (l.t > 0) l.t--;
 		if (f.cool > 0) f.cool--;
+		lungeStrike(f);
+		if (f.lungeT > 0) f.lungeT--;
+		if (f.lungeCool > 0) f.lungeCool--;
+		if (f.grounded && f.lungeT <= 0) f.airLunges = 0;
+		// Speed streaks behind a lunging or flying body, and a trail behind a swinging weapon
+		const sp = Math.hypot(v.x, v.y);
+		if (f.lungeT > 0 || sp > 15) f.trail.push({ x: T.position.x, y: T.position.y, life: 10 });
+		for (const p of f.trail) p.life--;
+		f.trail = f.trail.filter((p) => p.life > 0).slice(-12);
+		if (f.weapon && f.arms[0].t > 0) {
+			const w = f.weapon;
+			const g = gripOf(w);
+			const a = w.body.angle;
+			const d = w.t.len - w.t.grip;
+			f.swingTrail.push({ x: g.x + Math.sin(a) * d, y: g.y - Math.cos(a) * d, gx: g.x, gy: g.y, life: 9 });
+		}
+		for (const p of f.swingTrail) p.life--;
+		f.swingTrail = f.swingTrail.filter((p) => p.life > 0);
 		if (f.kcool > 0) f.kcool--;
 		if (f.jcool > 0) f.jcool--;
 		if (f.slamCool > 0) f.slamCool--;
@@ -530,9 +555,55 @@
 	function jump(f) {
 		if (!canAct(f) || !f.grounded || f.jcool > 0) return;
 		f.jcool = 30;
-		for (const b of f.bodies) addVel(b, 0, -11);
+		for (const b of f.bodies) addVel(b, 0, -12);
 		addVel(f.torso, 0, -3);
 		sfx.jump();
+	}
+
+	// Tap a direction: the whole body launches that way, fist (or weapon) first. Two lunges in the air.
+	function lunge(f, dir) {
+		if (!canAct(f) || f.lungeCool > 0 || f.reach || f.throwT > 0) return false;
+		if (!f.grounded && f.airLunges >= 2) return false;
+		if (!f.grounded) f.airLunges++;
+		f.facing = dir;
+		f.lungeT = 32;
+		f.lungeCool = 20;
+		const up = f.grounded ? (f.weapon ? -3.5 : -5.5) : -3;
+		for (const b of f.bodies) {
+			const v = vel(b);
+			Body.setVelocity(b, { x: dir * 11, y: Math.min(v.y, 0) + up });
+		}
+		// The strike stays live for the whole flight: the fist leads until it lands, a weapon swings once in reach
+		f.lungeStrike = true;
+		if (!f.weapon) {
+			f.lungeArm = f.nextArm;
+			f.cool = 0;
+			attack(f);
+		}
+		return true;
+	}
+
+	function lungeStrike(f) {
+		if (!f.lungeStrike) return;
+		if (f.lungeT <= 0 || f.ko || f.stun > 0) {
+			f.lungeStrike = false;
+			return;
+		}
+		if (f.weapon) {
+			const opp = nearestOpponent(f);
+			const dx = opp ? opp.torso.position.x - f.torso.position.x : 0;
+			// Start the swing early enough that the wind-up finishes as you arrive
+			const closing = Math.max(0, vel(f.torso).x * f.facing) * SWING * 0.45;
+			if (opp && dx * f.facing > -10 && Math.abs(dx) < reachOf(f) + closing) {
+				f.cool = 0;
+				attack(f);
+				f.lungeStrike = false;
+			}
+		} else {
+			const arm = f.arms[f.lungeArm];
+			if (arm.hit) f.lungeStrike = false;
+			else arm.t = Math.max(arm.t, 2);
+		}
 	}
 
 	// Space: reach out and grab the nearest weapon (the hand has to touch it), or throw the one you hold
@@ -602,7 +673,7 @@
 		const head = py.kind === "head";
 		const part = head ? 1.7 : py.kind === "torso" ? 1 : 0.55;
 		const dmg = Math.min(60, (rv - 4) * 0.9 * part * A.power * mult);
-		hurt(V, dmg, y, rx / rv, ry / rv, (6 + rv * 0.55) * A.power * Math.min(1.6, mult), at, head);
+		hurt(V, dmg, y, rx / rv, ry / rv, (8 + rv * 0.7) * A.power * Math.min(1.6, mult), at, head);
 	}
 
 	function hurt(V, dmg, part, nx, ny, push, at, head) {
@@ -630,7 +701,7 @@
 		V.ko = true;
 		V.stun = 0;
 		drop(V, false);
-		for (const b of V.bodies) addVel(b, nx * 10, ny * 4 - 9);
+		for (const b of V.bodies) addVel(b, nx * 13, ny * 5 - 11);
 		slowmo = 70;
 		shake = 20;
 		burst(V.head.position.x, V.head.position.y, 34, "#ffd23f", nx, ny);
@@ -985,7 +1056,12 @@
 		const ahead = opp && dx * fc > -20 && Math.abs(dx) < 280 * f.s;
 		f.aim = ahead ? { x: opp.head.position.x, y: opp.head.position.y + 6 } : { x: f.torso.position.x + fc * 200, y: f.head.position.y + 10 };
 		const tapped = tapR || tapL;
-		if (tapped || (dir && ahead && Math.abs(dx) < reachOf(f) * 1.1)) attack(f);
+		if (tapped) {
+			// On the ground a tap lunges at an enemy in front; with nobody there it just walks. In the air it always lunges.
+			const d = tapR ? 1 : -1;
+			const foe = opp && (opp.torso.position.x - f.torso.position.x) * d > 0 && Math.abs(dx) < 420 * f.s;
+			if (!((foe || !f.grounded) && lunge(f, d)) && foe && Math.abs(dx) < reachOf(f) * 1.2) attack(f);
+		} else if (dir && ahead && Math.abs(dx) < reachOf(f) * 1.1) attack(f);
 		if (wasPressed(c.jump)) jump(f);
 		if (wasPressed(c.kick)) kick(f);
 		if (wasPressed(c.grab)) grab(f);
@@ -1025,6 +1101,7 @@
 			if (dist < reach * 1.2 && Math.random() < t.aggro) ai.want = !e.weapon && Math.random() < t.kick ? "kick" : "attack";
 			if (e.weapon && dist > 380 && Math.random() < 0.05) grab(e); // throw it
 			if (e.grounded && dist > reach * 1.6 && Math.random() < 0.06) jump(e);
+			if (dist > reach * 0.9 && dist < 330 && e.lungeCool <= 0 && Math.random() < t.aggro * 0.6) lunge(e, Math.sign(dx));
 		}
 		if (ai.target) {
 			e.facing = ai.target.body.position.x >= e.torso.position.x ? 1 : -1;
@@ -1156,7 +1233,7 @@
 	let H = 0;
 	let dpr = 1;
 	let view = { scale: 1, x: 0, y: 0 };
-	const cam = { x: WORLD_W / 2, w: WORLD_W };
+	const cam = { x: WORLD_W / 2, w: WORLD_W, lift: 0 };
 
 	function resize() {
 		dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1183,7 +1260,11 @@
 		const scale = Math.min(W / cam.w, H / 470);
 		const half = W / scale / 2;
 		const cx = half * 2 >= WORLD_W + 400 ? WORLD_W / 2 : clamp(cam.x, -200 + half, WORLD_W + 200 - half);
-		view = { scale, x: W / 2 - cx * scale, y: H * 0.86 - FLOOR_Y * scale };
+		const live2 = fighters.filter((f) => !f.ko);
+		const top = live2.length && state !== "menu" ? Math.min(...live2.map((f) => f.head.position.y)) : FLOOR_Y;
+		const lift = clamp(FLOOR_Y - H * 0.7 / scale - top + 40, 0, 500);
+		cam.lift += (lift - cam.lift) * (snap ? 1 : 0.06);
+		view = { scale, x: W / 2 - cx * scale, y: H * 0.86 - FLOOR_Y * scale + cam.lift * scale };
 	}
 	addEventListener("resize", resize);
 
@@ -1508,6 +1589,31 @@
 		ctx.setTransform(k, 0, 0, k, (view.x + sx) * dpr, (view.y + sy) * dpr);
 		drawWorld();
 		for (const w of weapons) if (!w.holder) drawWeaponAt(w.type, gripOf(w), w.body.angle);
+		ctx.lineCap = "round";
+		for (const f of fighters) {
+			for (let i = 1; i < f.trail.length; i++) {
+				const a = f.trail[i - 1];
+				const b = f.trail[i];
+				ctx.globalAlpha = (b.life / 10) * 0.5;
+				for (const o of [-18, 0, 18]) stroke({ x: a.x, y: a.y + o * f.s }, { x: b.x, y: b.y + o * f.s }, 3, "#e8ecff");
+			}
+			if (f.swingTrail.length > 1) {
+				ctx.fillStyle = "#ffffff";
+				for (let i = 1; i < f.swingTrail.length; i++) {
+					const a = f.swingTrail[i - 1];
+					const b = f.swingTrail[i];
+					ctx.globalAlpha = (b.life / 9) * 0.45;
+					ctx.beginPath();
+					ctx.moveTo(a.x, a.y);
+					ctx.lineTo(b.x, b.y);
+					ctx.lineTo((b.x + b.gx) / 2, (b.y + b.gy) / 2);
+					ctx.lineTo((a.x + a.gx) / 2, (a.y + a.gy) / 2);
+					ctx.closePath();
+					ctx.fill();
+				}
+			}
+		}
+		ctx.globalAlpha = 1;
 		for (const f of fighters) if (f.ko) drawFighter(f);
 		for (const f of fighters) if (!f.ko && !humans.includes(f)) drawFighter(f);
 		for (const f of humans) if (!f.ko) drawFighter(f);
@@ -1540,7 +1646,7 @@
 		}
 		if (hintT > 0 && state === "fight") {
 			ctx.globalAlpha = clamp(hintT / 40, 0, 1);
-			const text = mode === "duo" ? "P1: A D move + hit · W jump · S kick · Space grab      P2: ← → move + hit · ↑ jump · ↓ kick · Enter grab" : "A D: move + hit   ·   W: jump   ·   S: kick   ·   Space: grab or throw a weapon";
+			const text = mode === "duo" ? "P1: A D lunge/walk · W jump · S kick · Space grab      P2: ← → lunge/walk · ↑ jump · ↓ kick · Enter grab" : "A D: tap to lunge at an enemy, hold to walk   ·   W: jump   ·   S: kick   ·   Space: grab or throw a weapon";
 			outlinedText(text, W / 2, H - 28, Math.min(18, W / 48), "#ffffff");
 			ctx.globalAlpha = 1;
 		}

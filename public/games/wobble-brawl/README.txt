@@ -1,14 +1,15 @@
 WOBBLE BRAWL
 ============
 
-An original physics brawler made for ROKI. Every fighter is a floppy ragdoll that sways, lurches
-along step by step and tries to stay on its feet. Knock out every enemy on the roof to clear a
+An original physics brawler made for ROKI. Every fighter is a floppy ragdoll: fights happen in the
+air, with fighters lunging at each other, tumbling and getting launched across the roof, and they
+only stand up straight once they land. Knock out every enemy on the roof to clear a
 level; each level is a little tougher, with a boss every fifth level. Win coins and spend them in
 the shop on weapons and skins. Two players can also fight on one keyboard.
 
 Controls (1 player)
-- A D or left/right arrows: move. Tapping toward an enemy punches, and holding the key keeps
-  punching while someone is in reach. With a weapon, it swings instead.
+- A D or left/right arrows: tap toward an enemy to lunge at them, fist first (with a weapon, it
+  swings as you arrive). You can lunge twice more in the air. Hold the key to walk.
 - W or up arrow: jump
 - S or down arrow: kick
 - Space: grab a weapon (your fighter bends down and reaches for the nearest one), press again to
