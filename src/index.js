@@ -199,7 +199,7 @@ fastify.post("/account/signup", { bodyLimit: 2048 }, async (req, reply) => {
 
 fastify.get("/account/me", (req, reply) => {
 	reply.header("Cache-Control", "no-store");
-	return { name: req.user.name };
+	return { name: req.user.name, owner: req.user.role === "owner" };
 });
 
 fastify.post("/account/password", { bodyLimit: 2048 }, async (req, reply) => {
@@ -305,7 +305,7 @@ fastify.get("/chat/stream", (req, reply) => {
 		Connection: "keep-alive",
 	});
 	const after = Number(req.headers["last-event-id"]) || 0;
-	let out = "retry: 3000\n\n" + sseEvent("ready", { after });
+	let out = "retry: 3000\n\n" + sseEvent("ready", { after, owners: accounts.owners() });
 	for (const m of chat.history(after)) out += sseEvent("msg", m, m.id);
 	out += sseEvent("live", {}); // everything after this is new
 	res.write(out);

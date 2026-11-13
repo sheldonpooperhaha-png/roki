@@ -34,7 +34,7 @@ test("the session cookie logs the right account in, and only if untouched", asyn
 	const acc = fresh();
 	const { user } = await acc.signup("Alex", "pass1234");
 	const c = cookieValue(acc.sessionCookie(user, true));
-	assert.deepEqual(acc.userFromCookie(`other=1; ${c}`), { key: "alex", name: "Alex" });
+	assert.deepEqual(acc.userFromCookie(`other=1; ${c}`), { key: "alex", name: "Alex", role: null });
 	assert.match(acc.sessionCookie(user, true), /HttpOnly; SameSite=Lax; Secure$/);
 	const forged = c.replace(/\.[^.]+$/, ".AAAA");
 	assert.equal(acc.userFromCookie(forged), null);
@@ -96,4 +96,19 @@ test("the owner can reset a password or remove an account", async () => {
 	assert.equal((await acc.login("tyler", "brand-new")).ok, true);
 	assert.equal(acc.remove("tyler"), true);
 	assert.equal(acc.count(), 0);
+});
+
+test("only the accounts tool gives the Owner tag, and it survives a restart", async () => {
+	const file = join(mkdtempSync(join(tmpdir(), "roki-own-")), "accounts.json");
+	const acc = fresh({ file });
+	const { user } = await acc.signup("Youssef", "owner-pass");
+	assert.deepEqual(acc.owners(), []);
+	assert.equal(acc.setRole("youssef", "owner"), true);
+	assert.deepEqual(acc.owners(), ["Youssef"]);
+	const c = cookieValue(acc.sessionCookie(user));
+	assert.equal(acc.userFromCookie(c).role, "owner");
+	assert.deepEqual(fresh({ file }).owners(), ["Youssef"]);
+	assert.equal(acc.setRole("youssef", null), true);
+	assert.deepEqual(acc.owners(), []);
+	assert.equal(acc.setRole("nobody", "owner"), false);
 });

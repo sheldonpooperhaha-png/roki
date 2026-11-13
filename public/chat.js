@@ -32,6 +32,8 @@
 	let lastShown = null; // the last message drawn, to group messages from the same person
 	let lastLi = null;
 	let catchingUp = true; // the saved history sent when the page first connects isn't "unread"
+	let owners = new Set(); // lowercased usernames with the Owner tag (the server sends them)
+	const isOwner = (name) => owners.has(String(name).toLowerCase());
 
 	const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 	const dayFmt = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" });
@@ -76,7 +78,7 @@
 		}
 		const grouped = lastShown && lastShown.name === m.name && m.at - lastShown.at < 3 * 60 * 1000;
 		const li = document.createElement("li");
-		li.className = `chat-msg ${mine ? "mine" : "theirs"} last` + (grouped ? "" : " first") + (live ? " new" : "");
+		li.className = `chat-msg ${mine ? "mine" : "theirs"} last` + (grouped ? "" : " first") + (live ? " new" : "") + (isOwner(m.name) ? " owner" : "");
 		li.dataset.name = m.name;
 		li.style.setProperty("--h", hue(m.name));
 		if (grouped && lastLi) lastLi.classList.remove("last");
@@ -96,7 +98,14 @@
 			const time = document.createElement("time");
 			time.dateTime = new Date(m.at).toISOString();
 			time.textContent = timeFmt.format(new Date(m.at));
-			meta.append(who, time);
+			meta.append(who);
+			if (isOwner(m.name)) {
+				const tag = document.createElement("span");
+				tag.className = "chat-tag";
+				tag.textContent = "Owner";
+				meta.append(tag);
+			}
+			meta.append(time);
 			body.append(meta);
 		}
 		const bubble = document.createElement("p");
@@ -136,8 +145,11 @@
 		await meReady;
 		store.set("roki:chat-used", "1");
 		source = new EventSource("/chat/stream");
-		source.addEventListener("ready", () => {
+		source.addEventListener("ready", (e) => {
 			setStatus("");
+			try {
+				owners = new Set((JSON.parse(e.data).owners || []).map((n) => String(n).toLowerCase()));
+			} catch (err) {}
 			catchingUp = lastId === 0;
 			if (!lastId) empty.hidden = log.children.length > 0;
 		});

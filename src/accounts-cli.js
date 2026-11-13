@@ -2,6 +2,7 @@
 //   list            everyone's username and when they joined
 //   reset NAME      asks for a new password for NAME (logs them out everywhere)
 //   delete NAME     removes NAME's account
+//   owner NAME      gives NAME the Owner tag in Chat (unowner NAME takes it away)
 // ROKI notices the change within a few seconds; no restart needed.
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
@@ -64,7 +65,7 @@ function askHidden(question) {
 if (cmd === "list") {
 	const list = accounts.list();
 	if (!list.length) console.log("No accounts yet.");
-	for (const u of list) console.log(`${u.name.padEnd(22)} joined ${new Date(u.created).toLocaleString()}`);
+	for (const u of list) console.log(`${u.name.padEnd(22)} joined ${new Date(u.created).toLocaleString()}${u.role === "owner" ? "  (Owner)" : ""}`);
 	console.log(`${list.length} account${list.length === 1 ? "" : "s"}`);
 } else if (cmd === "reset" && name) {
 	const pw = await askHidden(`New password for ${name}: `);
@@ -76,9 +77,13 @@ if (cmd === "list") {
 	const r = await accounts.resetPassword(name, pw);
 	console.log(r.ok ? `Done. ${name} can log in with the new password.` : r.error);
 	process.exit(r.ok ? 0 : 1);
+} else if ((cmd === "owner" || cmd === "unowner") && name) {
+	const ok = accounts.setRole(name, cmd === "owner" ? "owner" : null);
+	console.log(!ok ? "No account with that username." : cmd === "owner" ? `${name} is now an Owner.` : `${name} isn't an Owner anymore.`);
+	process.exit(ok ? 0 : 1);
 } else if (cmd === "delete" && name) {
 	console.log(accounts.remove(name) ? `Deleted ${name}.` : "No account with that username.");
 } else {
-	console.log("Usage: list | reset NAME | delete NAME");
+	console.log("Usage: list | reset NAME | delete NAME | owner NAME | unowner NAME");
 	process.exit(1);
 }

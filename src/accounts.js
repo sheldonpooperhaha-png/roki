@@ -63,7 +63,9 @@ export function createAccounts({ file = null, secret, now = Date.now, maxAccount
 			const data = JSON.parse(readFileSync(file, "utf8"));
 			const next = {};
 			for (const [k, u] of Object.entries(data.users || {})) {
-				if (u && validName(u.name) && k === u.name.toLowerCase() && u.salt && u.hash) next[k] = { ...u, v: Number(u.v) || 1 };
+				if (u && validName(u.name) && k === u.name.toLowerCase() && u.salt && u.hash) {
+					next[k] = { ...u, v: Number(u.v) || 1, role: u.role === "owner" ? "owner" : undefined };
+				}
 			}
 			users = next;
 		} catch {
@@ -108,7 +110,20 @@ export function createAccounts({ file = null, secret, now = Date.now, maxAccount
 	return {
 		reload: load,
 		count: () => Object.keys(users).length,
-		list: () => Object.values(users).map((u) => ({ name: u.name, created: u.created })),
+		list: () => Object.values(users).map((u) => ({ name: u.name, created: u.created, role: u.role || null })),
+		// Usernames with the Owner tag (only the server's accounts tool can give it)
+		owners() {
+			maybeReload();
+			return Object.values(users).filter((u) => u.role === "owner").map((u) => u.name);
+		},
+		setRole(name, role) {
+			const u = users[String(name).toLowerCase()];
+			if (!u) return false;
+			if (role === "owner") u.role = "owner";
+			else delete u.role;
+			save();
+			return true;
+		},
 
 		async signup(name, pw) {
 			maybeReload();
@@ -202,7 +217,7 @@ export function createAccounts({ file = null, secret, now = Date.now, maxAccount
 			const u = users[key];
 			if (!u || String(u.v) !== parts[1]) return null;
 			if (now() / 1000 - Number(parts[2]) > SESSION_DAYS * 86400) return null;
-			return { key, name: u.name };
+			return { key, name: u.name, role: u.role || null };
 		},
 	};
 }
