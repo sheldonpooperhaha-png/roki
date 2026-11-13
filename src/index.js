@@ -18,6 +18,7 @@ import { ICON_SITES, cleanDomain, createIconCache } from "./icons.js";
 import { WISP_OPTIONS } from "./wisp-config.js";
 import { patchScramjet } from "./scramjet-patch.js";
 import { createArtCache, loadCatalogGames } from "./game-art.js";
+import { createChat, sseEvent } from "./chat.js";
 
 const publicPath = fileURLToPath(new URL("../public/", import.meta.url));
 const gamesPath = fileURLToPath(new URL("../public/games/", import.meta.url));
@@ -203,6 +204,46 @@ fastify.get("/game-art", async (req, reply) => {
 setTimeout(() => {
 	for (const g of catalogGames) getArt(g);
 }, 15000).unref();
+
+// The chatroom (see src/chat.js). Locked like every ROKI page, so only people with the invite link can read
+// or post. The last 200 messages are kept in data/chat.json (ROKI_DATA_DIR changes the folder).
+const dataDir = process.env.ROKI_DATA_DIR || fileURLToPath(new URL("../data/", import.meta.url));
+const chat = createChat({ file: join(dataDir, "chat.json") });
+
+// New messages arrive here as server-sent events. A reconnecting page sends Last-Event-ID and gets what it missed.
+fastify.get("/chat/stream", (req, reply) => {
+	reply.hijack();
+	const res = reply.raw;
+	res.writeHead(200, {
+		"Content-Type": "text/event-stream; charset=utf-8",
+		"Cache-Control": "no-store, no-transform",
+		"X-Accel-Buffering": "no",
+		Connection: "keep-alive",
+	});
+	const after = Number(req.headers["last-event-id"]) || 0;
+	let out = "retry: 3000\n\n" + sseEvent("ready", { after });
+	for (const m of chat.history(after)) out += sseEvent("msg", m, m.id);
+	out += sseEvent("live", {}); // everything after this is new
+	res.write(out);
+	const stop = chat.subscribe((e) => res.write(e));
+	// A comment every 15 s keeps proxies in front of ROKI (CloudFront, Cloudflare) from closing a quiet stream
+	const beat = setInterval(() => res.write(": ping\n\n"), 15_000);
+	req.raw.on("close", () => {
+		clearInterval(beat);
+		stop();
+	});
+});
+
+fastify.post("/chat/send", { bodyLimit: 4096 }, async (req, reply) => {
+	reply.header("Cache-Control", "no-store");
+	if (!String(req.headers["content-type"] || "").startsWith("application/json")) {
+		return reply.code(415).send({ error: "Send the message as JSON." });
+	}
+	const body = req.body && typeof req.body === "object" ? req.body : {};
+	const r = chat.post(req.ip, body.name, body.text);
+	if (!r.ok) return reply.code(r.status).send({ error: r.error });
+	return { ok: true, id: r.message.id };
+});
 
 // The Games page asks for this list (see src/games.js). It's locked like everything else.
 fastify.get("/games/list.json", async (req, reply) => {

@@ -17,6 +17,7 @@
 	<script src="search.js" defer></script>
 	<script src="catalog.js" defer></script>
 	<script src="roki.js" defer></script>
+	<script src="chat.js" defer></script>
 	<script src="settings.js" defer></script>
 	<script src="panic.js" defer></script>
 </head>
@@ -62,6 +63,7 @@
 						<button class="topnav-link" type="button" data-page="games" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="5"/><path d="M7 10v4M5 12h4"/><path d="M15.5 11h.01M18 13h.01"/></svg><span>Games</span></button>
 						<button class="topnav-link" type="button" data-page="apps" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg><span>Apps</span></button>
 						<button class="topnav-link" type="button" data-page="media" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M10 8.5v5l4-2.5z" fill="currentColor"/></svg><span>Media</span></button>
+						<button class="topnav-link" type="button" data-page="chat" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z"/><path d="M9 11h.01M12 11h.01M15 11h.01"/></svg><span>Chat</span><b class="nav-badge" id="chat-badge" hidden></b></button>
 						<button class="topnav-link" type="button" data-page="settings" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>Settings</span></button>
 					</div>
 					<div class="topnav-end">
@@ -130,6 +132,34 @@
 					</div>
 					<ul class="app-grid" id="media-grid" aria-label="Video and music"></ul>
 					<p class="page-empty" id="media-nomatch" hidden>Nothing matches that.</p>
+				</main>
+
+				<main class="page page-chat" id="chat-main" hidden>
+					<h1 class="page-title">Chat</h1>
+					<section class="chat-box" aria-label="Chatroom">
+						<div class="chat-head">
+							<span class="chat-online" id="chat-online">Connecting…</span>
+							<button class="chat-name-btn" type="button" id="chat-name-btn" hidden></button>
+						</div>
+						<ol class="chat-log" id="chat-log" aria-label="Messages" aria-live="polite"></ol>
+						<p class="chat-empty" id="chat-empty" hidden>No messages yet. Say hi!</p>
+						<button class="chat-jump" type="button" id="chat-jump" hidden>New messages ↓</button>
+						<form class="chat-form" id="chat-name-form" hidden>
+							<label class="chat-label" for="chat-name">Pick a name to chat with</label>
+							<div class="chat-row">
+								<input class="chat-input" id="chat-name" maxlength="20" placeholder="Your name" autocomplete="off" spellcheck="false">
+								<button class="chat-send" type="submit">Join</button>
+							</div>
+						</form>
+						<form class="chat-form" id="chat-form" hidden>
+							<div class="chat-row">
+								<input class="chat-input" id="chat-input" maxlength="300" placeholder="Message everyone" autocomplete="off" aria-label="Message">
+								<button class="chat-send" type="submit" id="chat-send">Send</button>
+							</div>
+						</form>
+						<p class="chat-status" id="chat-status" role="status"></p>
+					</section>
+					<p class="page-empty chat-note">Only people with your invite link can read this chat. The last 200 messages are kept.</p>
 				</main>
 
 				<main class="page page-settings" id="settings-main" hidden>

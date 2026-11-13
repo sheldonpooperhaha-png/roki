@@ -6,11 +6,12 @@ ROKI is built on the [Scramjet demo app](https://github.com/MercuryWorkshop/Scra
 
 ## What's in it
 
-- **Start page:** a floating top bar (Games, Apps, Media, Settings, the clock, and Hide and Panic buttons), a big ROKI over a starfield, a search bar and big tiles for favorite sites.
+- **Start page:** a floating top bar (Games, Apps, Media, Chat, Settings, the clock, and Hide and Panic buttons), a big ROKI over a starfield, a search bar and big tiles for favorite sites.
 - **Apps and Media:** searchable grids of about 50 sites, listed in `public/catalog.js`. Each tile shows the site's own icon, fetched live through ROKI's server.
 - **Tabs:** sites open through the [Scramjet](https://github.com/MercuryWorkshop/scramjet) proxy, each in its own tab with back, forward and reload.
 - **Secret invite link, no password:** opening the invite link (`/join/<secret key>`) once gets a browser in for 30 days. Everyone else only sees a lock screen, and 10 wrong links locks that address out for 15 minutes.
 - **Games:** anything in `public/games` shows up on the Games page (see `public/games/README.txt`), with search and sorting. Comes with DOOM's free shareware episode (see `public/games/DOOM/README.txt`), Star Catcher and Wobble Brawl (an original ragdoll physics brawler made for ROKI, with weapons, a coin shop and a 2-player mode, see `public/games/wobble-brawl/README.txt`), and the page has room for a "Play online" list of games on other websites, opened in ROKI's game screen through the proxy. That list is empty, so the page only shows games saved in ROKI; to add one back, list it under `games` in `public/catalog.js` (its tile shows the game's own cover picture, fetched by ROKI's server, `src/game-art.js`).
+- **Chat:** one chatroom for everyone with the invite link, on ROKI's own server (`src/chat.js`): pick a name and talk, with new messages showing up live and an unread count on the Chat button. Plain text only, with limits on how fast one person can post. The last 200 messages are saved in `data/chat.json` on the server (set `ROKI_DATA_DIR` to keep them somewhere else).
 - **Settings page:** 13 themes (Night, Dawn, Dusk, Aurora, Nebula, Deep sea, Ember, Forest, Graphite, Sakura, Candy, Classic and Eclipse for high contrast), stars, twinkle and shooting stars, tab cloak (fake tab name and icon from presets or your own), about:blank cloak (once or every time), panic key, ad and tracker blocking, "ask before closing", site data wiping, invite link and friend launcher, and settings export/import.
 - **Corner buttons:** jump into about:blank, panic, or open the source code.
 
